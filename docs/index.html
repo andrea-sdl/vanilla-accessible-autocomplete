@@ -5,36 +5,207 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Accessible searchable select</title>
     <style>
-      :root { color-scheme: light dark; }
-      body { background: Canvas; color: CanvasText; font: 1rem/1.5 system-ui, sans-serif; margin: 0; padding: clamp(1rem, 5vw, 4rem) 1rem; }
-      main { margin-inline: auto; max-inline-size: 42rem; }
-      h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); letter-spacing: -.03em; margin: 0 0 2rem; }
-      form { display: grid; gap: 1rem; max-inline-size: 100%; }
-      label { font-weight: 650; }
-      button { background: ButtonFace; border: 1px solid GrayText; border-radius: .625rem; color: ButtonText; font: inherit; justify-self: start; padding: .625rem 1rem; }
+      :root { color-scheme: light dark; --surface: Canvas; --text: CanvasText; --muted: GrayText; --border: GrayText; --border: color-mix(in srgb, CanvasText 16%, Canvas); --soft: Canvas; --soft: color-mix(in srgb, CanvasText 4%, Canvas); --shadow: 0 18px 40px -28px transparent; --shadow: 0 18px 40px -28px color-mix(in srgb, CanvasText 50%, transparent); }
+      * { box-sizing: border-box; }
+      body { background: Canvas; background: linear-gradient(145deg, var(--soft), Canvas 35%); color: var(--text); font: 1rem/1.5 system-ui, sans-serif; margin: 0; min-block-size: 100vh; padding: clamp(1rem, 5vw, 5rem) 1rem; }
+      main { display: grid; gap: 1.5rem; margin-inline: auto; max-inline-size: 48rem; }
+      h1, h2, p { margin: 0; }
+      h1 { font-size: clamp(2rem, 6vw, 3.5rem); letter-spacing: -.05em; line-height: 1; }
+      h2 { font-size: clamp(1.25rem, 3vw, 1.5rem); letter-spacing: -.02em; }
+      a { color: LinkText; }
+      :focus-visible { outline: 2px solid Highlight; outline-offset: 3px; }
+      .hero { display: grid; gap: 1rem; }
+      .hero-row { align-items: start; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }
+      .intro, .section-copy, .note { color: var(--muted); max-inline-size: 42rem; }
+      .kicker { color: var(--muted); font-size: .875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+      .repo-link { border: 1px solid var(--border); border-radius: 999px; color: var(--text); font-weight: 650; padding: .5rem .875rem; text-decoration: none; }
+      .repo-link:hover { background: var(--soft); }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; box-shadow: var(--shadow); display: grid; gap: 1.25rem; padding: clamp(1.25rem, 4vw, 2rem); }
+      form { display: grid; gap: 1rem; max-inline-size: 32rem; }
+      label { font-weight: 700; }
+      .actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+      button { background: ButtonFace; border: 1px solid var(--border); border-radius: .625rem; color: ButtonText; font: inherit; padding: .625rem 1rem; }
+      .actions button:first-child { background: Highlight; border-color: Highlight; color: HighlightText; }
       output { min-block-size: 1.5rem; }
+      pre { background: var(--soft); border: 1px solid var(--border); border-radius: .75rem; margin: 0; max-inline-size: 100%; overflow: auto; padding: 1rem; }
+      code { font: .875rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      footer { color: var(--muted); font-size: .875rem; padding: .5rem 0; }
+      @media (max-width: 32rem) { .repo-link { inline-size: 100%; text-align: center; } }
     </style>
     <script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@main/accessible-select.js"></script>
   </head>
   <body>
     <main>
-      <h1>Searchable country select</h1>
-      <form id="country-form">
-        <label for="country">Select your country</label>
+      <header class="hero">
+        <p class="kicker">Dependency-free Web Component</p>
+        <div class="hero-row">
+          <div>
+            <h1>Accessible searchable select</h1>
+            <p class="intro">A searchable view over one native select. The source select remains the form field and fallback.</p>
+          </div>
+          <a class="repo-link" href="https://github.com/andrea-sdl/vanilla-accessible-autocomplete">View on GitHub</a>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="demo-title">
+        <div>
+          <p class="kicker">Live demo</p>
+          <h2 id="demo-title">Choose a country</h2>
+          <p class="section-copy">Search, choose an option, submit the native form value, or reset it.</p>
+        </div>
+        <form id="country-form">
+          <label for="country">Select your country</label>
+          <accessible-select>
+            <select id="country" name="country" required>
+              <option value="" disabled selected>Choose a country</option>
+              <option value="fr">France</option>
+              <option value="de">Germany</option>
+              <option value="gb">United Kingdom</option>
+              <option value="ci">Côte d’Ivoire</option>
+              <option value="unavailable" disabled>Unavailable country</option>
+            </select>
+          </accessible-select>
+          <div class="actions">
+            <button>Submit</button>
+            <button type="reset">Reset</button>
+          </div>
+          <output id="result" aria-live="polite"></output>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="large-list-title">
+        <div>
+          <p class="kicker">Large list</p>
+          <h2 id="large-list-title">Search 100 options</h2>
+          <p class="section-copy">The unopened list shows 10 options and the selected item. Search filters all 100 options. Try <code>042</code>.</p>
+        </div>
+        <label for="many-items">Select an item from 100 options</label>
         <accessible-select>
-          <select id="country" name="country" required>
-            <option value="" disabled selected>Choose a country</option>
-            <option value="fr">France</option>
-            <option value="de">Germany</option>
-            <option value="gb">United Kingdom</option>
-            <option value="ci">Côte d’Ivoire</option>
-            <option value="unavailable" disabled>Unavailable country</option>
+          <select id="many-items" name="many-items">
+            <option value="" disabled selected>Choose an item</option>
+            <option value="item-001">Item 001</option>
+            <option value="item-002">Item 002</option>
+            <option value="item-003">Item 003</option>
+            <option value="item-004">Item 004</option>
+            <option value="item-005">Item 005</option>
+            <option value="item-006">Item 006</option>
+            <option value="item-007">Item 007</option>
+            <option value="item-008">Item 008</option>
+            <option value="item-009">Item 009</option>
+            <option value="item-010">Item 010</option>
+            <option value="item-011">Item 011</option>
+            <option value="item-012">Item 012</option>
+            <option value="item-013">Item 013</option>
+            <option value="item-014">Item 014</option>
+            <option value="item-015">Item 015</option>
+            <option value="item-016">Item 016</option>
+            <option value="item-017">Item 017</option>
+            <option value="item-018">Item 018</option>
+            <option value="item-019">Item 019</option>
+            <option value="item-020">Item 020</option>
+            <option value="item-021">Item 021</option>
+            <option value="item-022">Item 022</option>
+            <option value="item-023">Item 023</option>
+            <option value="item-024">Item 024</option>
+            <option value="item-025">Item 025</option>
+            <option value="item-026">Item 026</option>
+            <option value="item-027">Item 027</option>
+            <option value="item-028">Item 028</option>
+            <option value="item-029">Item 029</option>
+            <option value="item-030">Item 030</option>
+            <option value="item-031">Item 031</option>
+            <option value="item-032">Item 032</option>
+            <option value="item-033">Item 033</option>
+            <option value="item-034">Item 034</option>
+            <option value="item-035">Item 035</option>
+            <option value="item-036">Item 036</option>
+            <option value="item-037">Item 037</option>
+            <option value="item-038">Item 038</option>
+            <option value="item-039">Item 039</option>
+            <option value="item-040">Item 040</option>
+            <option value="item-041">Item 041</option>
+            <option value="item-042">Item 042</option>
+            <option value="item-043">Item 043</option>
+            <option value="item-044">Item 044</option>
+            <option value="item-045">Item 045</option>
+            <option value="item-046">Item 046</option>
+            <option value="item-047">Item 047</option>
+            <option value="item-048">Item 048</option>
+            <option value="item-049">Item 049</option>
+            <option value="item-050">Item 050</option>
+            <option value="item-051">Item 051</option>
+            <option value="item-052">Item 052</option>
+            <option value="item-053">Item 053</option>
+            <option value="item-054">Item 054</option>
+            <option value="item-055">Item 055</option>
+            <option value="item-056">Item 056</option>
+            <option value="item-057">Item 057</option>
+            <option value="item-058">Item 058</option>
+            <option value="item-059">Item 059</option>
+            <option value="item-060">Item 060</option>
+            <option value="item-061">Item 061</option>
+            <option value="item-062">Item 062</option>
+            <option value="item-063">Item 063</option>
+            <option value="item-064">Item 064</option>
+            <option value="item-065">Item 065</option>
+            <option value="item-066">Item 066</option>
+            <option value="item-067">Item 067</option>
+            <option value="item-068">Item 068</option>
+            <option value="item-069">Item 069</option>
+            <option value="item-070">Item 070</option>
+            <option value="item-071">Item 071</option>
+            <option value="item-072">Item 072</option>
+            <option value="item-073">Item 073</option>
+            <option value="item-074">Item 074</option>
+            <option value="item-075">Item 075</option>
+            <option value="item-076">Item 076</option>
+            <option value="item-077">Item 077</option>
+            <option value="item-078">Item 078</option>
+            <option value="item-079">Item 079</option>
+            <option value="item-080">Item 080</option>
+            <option value="item-081">Item 081</option>
+            <option value="item-082">Item 082</option>
+            <option value="item-083">Item 083</option>
+            <option value="item-084">Item 084</option>
+            <option value="item-085">Item 085</option>
+            <option value="item-086">Item 086</option>
+            <option value="item-087">Item 087</option>
+            <option value="item-088">Item 088</option>
+            <option value="item-089">Item 089</option>
+            <option value="item-090">Item 090</option>
+            <option value="item-091">Item 091</option>
+            <option value="item-092">Item 092</option>
+            <option value="item-093">Item 093</option>
+            <option value="item-094">Item 094</option>
+            <option value="item-095">Item 095</option>
+            <option value="item-096">Item 096</option>
+            <option value="item-097">Item 097</option>
+            <option value="item-098">Item 098</option>
+            <option value="item-099">Item 099</option>
+            <option value="item-100">Item 100</option>
           </select>
         </accessible-select>
-        <button>Submit</button>
-        <button type="reset">Reset</button>
-        <output id="result" aria-live="polite"></output>
-      </form>
+      </section>
+
+      <section class="card" aria-labelledby="integrate-title">
+        <div>
+          <p class="kicker">Integrate</p>
+          <h2 id="integrate-title">Add it to a plain HTML form</h2>
+          <p class="section-copy">Load the module, give the select an explicit label, and place it directly inside the component.</p>
+        </div>
+        <pre><code>&lt;label for="country"&gt;Country&lt;/label&gt;
+&lt;accessible-select&gt;
+  &lt;select id="country" name="country" required&gt;
+    &lt;option value="" disabled selected&gt;Choose a country&lt;/option&gt;
+    &lt;option value="fr"&gt;France&lt;/option&gt;
+    &lt;option value="de"&gt;Germany&lt;/option&gt;
+  &lt;/select&gt;
+&lt;/accessible-select&gt;
+&lt;script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@main/accessible-select.js"&gt;&lt;/script&gt;</code></pre>
+        <p class="note">For fixed production behavior, replace <code>main</code> with a Git tag or commit ID. See the <a href="https://github.com/andrea-sdl/vanilla-accessible-autocomplete#readme">README</a> for options, localization, and styling.</p>
+      </section>
+
+      <footer>Built with native HTML, CSS, and JavaScript. No dependencies or build step.</footer>
     </main>
     <script>
       document.querySelector("form").addEventListener("submit", event => {

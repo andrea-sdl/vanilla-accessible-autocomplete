@@ -156,8 +156,8 @@
           assert(value.textContent === "Côte d’Ivoire", "refresh did not copy the source selection");
         });
 
-        await run("commits the native list current option for Arrow, Home, End, and type-ahead keys", async () => {
-          for (const [key, text] of [["ArrowDown", "Germany"], ["Home", "France"], ["End", "Duplicate two"], ["d", "Duplicate one"]]) {
+        await run("commits the native list current option for Arrow, Home, and End keys", async () => {
+          for (const [key, text] of [["ArrowDown", "Germany"], ["Home", "France"], ["End", "Duplicate two"]]) {
             list.selectedIndex = listIndex(text);
             list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
             await tick();
@@ -165,7 +165,41 @@
           }
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
           assert(panel.hidden, "Escape did not close the panel");
-          assert(source.selectedIndex === sourceIndex("Duplicate one"), "Escape reverted a committed option");
+          assert(source.selectedIndex === sourceIndex("Duplicate two"), "Escape reverted a committed option");
+        });
+
+        await run("typing in the result list returns to search and filters without committing", () => {
+          button.click();
+          list.focus();
+          const before = source.value;
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "p", bubbles: true, cancelable: true }));
+          assert(root.activeElement === search, "typing did not return focus to search");
+          assert(search.value === "p", "typed character did not move to search");
+          assert(list.options.length === 2, "search did not filter duplicate options");
+          assert(source.value === before, "typing in the list committed a value");
+          control.close();
+        });
+
+        await run("limits a long unfiltered list but keeps its selected option visible", () => {
+          const label = document.createElement("label");
+          label.htmlFor = "many-items-test";
+          label.textContent = "Many items";
+          const control = document.createElement("accessible-select");
+          const source = document.createElement("select");
+          source.id = "many-items-test";
+          for (let number = 1; number <= 100; number++) {
+            const option = new Option(`Item ${String(number).padStart(3, "0")}`, number, false, number === 100);
+            source.add(option);
+          }
+          control.append(source);
+          document.body.append(label, control);
+          const list = control.shadowRoot.querySelector("[part=listbox]");
+          const items = [...list.options];
+          const hint = items[items.length - 1];
+          assert(items.filter(option => option.value !== "-1").length === 10, "long list showed more than 10 options");
+          assert(items.some(option => option.text === "Item 100"), "selected option was not visible");
+          assert(list.options[list.selectedIndex].text === "Item 100", "selected option was not current in the list");
+          assert(hint.disabled && hint.text === "Search to see them all", "long list did not give a search hint");
         });
 
         await run("opens on native required validation and announces the browser message", () => {

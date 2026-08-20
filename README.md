@@ -10,7 +10,9 @@ that source select and builds an accessible `details`/`summary` disclosure,
 search input, result status, validation error, and native listbox in its shadow
 root.
 
-## Use
+[Live demo](https://andrea-sdl.github.io/vanilla-accessible-autocomplete/) · [Source code](https://github.com/andrea-sdl/vanilla-accessible-autocomplete)
+
+## Integrate
 
 Add this module tag to load the current `main` version from GitHub through
 jsDelivr:
@@ -61,7 +63,12 @@ selection stay in sync.
 - Clicking the source label opens the disclosure and focuses search. A pointer
   click outside closes it, including on non-focusable page content.
 - A pointer click on a selectable result commits it and closes the panel.
-  Arrow keys, Home, End, and type-ahead keep the panel open for navigation.
+- Arrow keys, Home, and End commit the native current option but keep the panel
+  open. Typing while the result list has focus returns focus to search and
+  filters the list.
+- When an empty search has more than 10 results, the list shows 10 options,
+  always including the selected option, plus a search hint. Search filters all
+  options. Set `more-results-message` to translate that hint.
 - Closing clears the search and rebuilds the complete list around the committed
   source selection. Escape never reverses an already committed change.
 - The source emits bubbling native `input` and `change` events after a user
@@ -90,6 +97,7 @@ Set these optional attributes on `<accessible-select>`. Result strings may use
 | `result-message` | `{count} result` |
 | `results-message` | `{count} results` |
 | `no-results-message` | `No results` |
+| `more-results-message` | `Search to see them all` |
 
 The validation error always uses the browser-provided, localized
 `select.validationMessage`.
@@ -124,7 +132,8 @@ accessible-select {
 
 ## Demo and tests
 
-Open `docs/index.html` for a form example. For GitHub Pages, set `main` and
-`/docs` as the publishing source. Open `test.html` in a modern browser for the
-dependency-free browser tests. The test page reports each result and sets its
-document title to passed or failed.
+Open [the live demo](https://andrea-sdl.github.io/vanilla-accessible-autocomplete/)
+for a form example and a short integration guide. For GitHub Pages, set `main`
+and `/docs` as the publishing source. Open `test.html` in a modern browser for
+the dependency-free browser tests. The test page reports each result and sets
+its document title to passed or failed.

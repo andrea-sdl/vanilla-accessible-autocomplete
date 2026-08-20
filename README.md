@@ -124,6 +124,7 @@ accessible-select {
 
 ## Demo and tests
 
-Open `demo.html` for a form example. Open `test.html` in a modern browser for
-the dependency-free browser tests. The test page reports each result and sets
-its document title to passed or failed.
+Open `docs/index.html` for a form example. For GitHub Pages, set `main` and
+`/docs` as the publishing source. Open `test.html` in a modern browser for the
+dependency-free browser tests. The test page reports each result and sets its
+document title to passed or failed.

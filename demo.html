@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Accessible searchable select</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { background: Canvas; color: CanvasText; font: 1rem/1.5 system-ui, sans-serif; margin: 0; padding: clamp(1rem, 5vw, 4rem) 1rem; }
+      main { margin-inline: auto; max-inline-size: 42rem; }
+      h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); letter-spacing: -.03em; margin: 0 0 2rem; }
+      form { display: grid; gap: 1rem; max-inline-size: 100%; }
+      label { font-weight: 650; }
+      button { background: ButtonFace; border: 1px solid GrayText; border-radius: .625rem; color: ButtonText; font: inherit; justify-self: start; padding: .625rem 1rem; }
+      output { min-block-size: 1.5rem; }
+    </style>
+    <script type="module" src="accessible-select.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Searchable country select</h1>
+      <form id="country-form">
+        <label for="country">Select your country</label>
+        <accessible-select>
+          <select id="country" name="country" required>
+            <option value="" disabled>Choose a country</option>
+            <option value="fr" selected>France</option>
+            <option value="de">Germany</option>
+            <option value="gb">United Kingdom</option>
+            <option value="ci">Côte d’Ivoire</option>
+            <option value="unavailable" disabled>Unavailable country</option>
+          </select>
+        </accessible-select>
+        <button>Submit</button>
+        <button type="reset">Reset</button>
+        <output id="result" aria-live="polite"></output>
+      </form>
+    </main>
+    <script>
+      document.querySelector("form").addEventListener("submit", event => {
+        event.preventDefault();
+        document.querySelector("#result").textContent = `Submitted: ${new FormData(event.currentTarget).get("country")}`;
+      });
+    </script>
+  </body>
+</html>

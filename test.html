@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Accessible select browser tests</title>
+    <style>
+      body { font: 16px/1.4 system-ui, sans-serif; margin: 2rem; }
+      #results { padding-inline-start: 1.25rem; }
+      .pass { color: green; } .fail { color: firebrick; white-space: pre-wrap; }
+    </style>
+    <script type="module" src="accessible-select.js"></script>
+  </head>
+  <body>
+    <h1>Accessible select browser tests</h1>
+    <form id="form">
+      <label for="country">Select your country</label>
+      <accessible-select id="control">
+        <select id="country" name="country" required>
+          <option value="" disabled>Choose a country</option>
+          <option value="fr" selected>France</option>
+          <option value="de">Germany</option>
+          <option value="ci">Côte d’Ivoire</option>
+          <option value="duplicate">Duplicate one</option>
+          <option value="duplicate">Duplicate two</option>
+          <option value="disabled" disabled>Unavailable country</option>
+        </select>
+      </accessible-select>
+      <button id="outside" type="button">Outside</button>
+      <button type="reset">Reset</button>
+    </form>
+    <div id="outside-content">Non-focusable content outside the control</div>
+    <ol id="results"></ol>
+    <script type="module">
+      const tick = () => new Promise(resolve => setTimeout(resolve));
+      const results = document.querySelector("#results");
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const run = async (name, check) => {
+        const item = document.createElement("li");
+        try {
+          await check();
+          item.className = "pass";
+          item.textContent = `PASS: ${name}`;
+        } catch (error) {
+          item.className = "fail";
+          item.textContent = `FAIL: ${name}\n${error.message}`;
+          window.testFailures = (window.testFailures || 0) + 1;
+        }
+        results.append(item);
+      };
+      window.addEventListener("DOMContentLoaded", async () => {
+        await customElements.whenDefined("accessible-select");
+        const control = document.querySelector("#control");
+        const source = document.querySelector("#country");
+        const form = document.querySelector("#form");
+        const root = control.shadowRoot;
+        const disclosure = root.querySelector("details");
+        const button = root.querySelector("[part=button]");
+        const value = root.querySelector("[part=value]");
+        const panel = root.querySelector("[part=panel]");
+        const search = root.querySelector("[part=search]");
+        const list = root.querySelector("[part=listbox]");
+        const error = root.querySelector("[part=error]");
+        const sourceIndex = text => [...source.options].findIndex(option => option.text === text);
+        const listIndex = text => [...list.options].findIndex(option => option.text === text);
+
+        await run("upgrades an explicitly labeled select and preserves its initial selection", () => {
+          assert(source.hidden, "source select is still visible");
+          assert(disclosure && button.tagName === "SUMMARY" && button.getAttribute("role") === "button", "disclosure is not accessible native details/summary");
+          assert(list.tagName === "SELECT" && !list.name, "result list is not an unnamed native select");
+          assert(source.selectedIndex === sourceIndex("France"), "initial source selection changed");
+          assert(value.textContent === "France", "initial visible value is wrong");
+        });
+
+        await run("visible label activation opens the enhanced control and focuses search", () => {
+          document.querySelector("label[for=country]").click();
+          assert(disclosure.open && !panel.hidden, "label did not open the disclosure");
+          assert(root.activeElement === search, "label did not focus search");
+          control.close();
+        });
+
+        await run("summary Enter and Space keys open and close the disclosure", () => {
+          button.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          assert(disclosure.open && root.activeElement === search, "Enter did not open and focus search");
+          button.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }));
+          assert(!disclosure.open && panel.hidden, "Space did not close the disclosure");
+        });
+
+        await run("pointer activity on non-focusable outside content closes the panel", () => {
+          button.click();
+          document.querySelector("#outside-content").dispatchEvent(new Event("pointerdown", { bubbles: true, composed: true }));
+          assert(!disclosure.open && panel.hidden, "outside pointer activity did not close the panel");
+        });
+
+        await run("filters without changing the source value and ignores accents", () => {
+          button.click();
+          search.value = "cote";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(list.options.length === 1 && list.options[0].text === "Côte d’Ivoire", "accent-insensitive search failed");
+          assert(source.value === "fr", "search changed the form value");
+        });
+
+        await run("does not select an exact search result when search loses focus", async () => {
+          search.value = "Germany";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          document.querySelector("#outside").focus();
+          await tick();
+          assert(source.value === "fr", "blur selected the exact result");
+          assert(search.value === "" && list.options.length === source.options.length, "close did not rebuild the full list");
+        });
+
+        await run("commits the exact duplicate option and emits native source events", () => {
+          button.click();
+          let inputs = 0;
+          let changes = 0;
+          source.addEventListener("input", () => inputs++, { once: true });
+          source.addEventListener("change", () => changes++, { once: true });
+          list.selectedIndex = listIndex("Duplicate two");
+          list.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(source.selectedIndex === sourceIndex("Duplicate two"), "selected the wrong duplicate value");
+          assert(new FormData(form).get("country") === "duplicate", "source select did not submit its canonical value");
+          assert(inputs === 1 && changes === 1, "source input/change events did not fire once");
+        });
+
+        await run("pointer clicks commit a selectable result and close the panel", () => {
+          if (panel.hidden) button.click();
+          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
+          list.selectedIndex = listIndex("Germany");
+          list.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(source.selectedIndex === sourceIndex("Germany"), "pointer click did not commit its result");
+          assert(panel.hidden, "pointer click did not close the panel");
+        });
+
+        await run("keeps disabled options visible but cannot commit them", () => {
+          const before = source.selectedIndex;
+          list.selectedIndex = listIndex("Unavailable country");
+          list.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(list.options[listIndex("Unavailable country")].disabled, "disabled option is not represented as disabled");
+          assert(source.selectedIndex === before, "disabled option changed the source selection");
+        });
+
+        await run("refreshes after a silent programmatic source change", () => {
+          source.selectedIndex = sourceIndex("Côte d’Ivoire");
+          control.refresh();
+          assert(value.textContent === "Côte d’Ivoire", "refresh did not copy the source selection");
+        });
+
+        await run("commits the native list current option for Arrow, Home, End, and type-ahead keys", async () => {
+          for (const [key, text] of [["ArrowDown", "Germany"], ["Home", "France"], ["End", "Duplicate two"], ["d", "Duplicate one"]]) {
+            list.selectedIndex = listIndex(text);
+            list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+            await tick();
+            assert(source.selectedIndex === sourceIndex(text), `${key} did not commit the native current option`);
+          }
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          assert(panel.hidden, "Escape did not close the panel");
+          assert(source.selectedIndex === sourceIndex("Duplicate one"), "Escape reverted a committed option");
+        });
+
+        await run("opens on native required validation and announces the browser message", () => {
+          source.selectedIndex = 0;
+          control.refresh();
+          assert(!form.checkValidity(), "required select unexpectedly validated");
+          assert(!panel.hidden && !error.hidden, "invalid select did not open the panel and error");
+          assert(error.textContent === source.validationMessage && error.textContent, "error is not the browser validation message");
+          assert(root.activeElement === search, "invalid select did not focus search");
+        });
+
+        await run("resets the source select and visible value", async () => {
+          form.reset();
+          await tick();
+          assert(source.selectedIndex === sourceIndex("France"), "native reset did not restore initial selection");
+          assert(value.textContent === "France", "visible value did not reset");
+        });
+
+        await run("leaves unsupported markup as native fallback", () => {
+          const noLabel = document.createElement("accessible-select");
+          noLabel.innerHTML = "<select><option>Native only</option></select>";
+          const multiLabel = document.createElement("label");
+          multiLabel.htmlFor = "multiple";
+          multiLabel.textContent = "Multiple choices";
+          const multiple = document.createElement("accessible-select");
+          multiple.innerHTML = "<select id=multiple multiple><option>Native only</option></select>";
+          const groupLabel = document.createElement("label");
+          groupLabel.htmlFor = "grouped";
+          groupLabel.textContent = "Grouped choices";
+          const grouped = document.createElement("accessible-select");
+          grouped.innerHTML = "<select id=grouped><optgroup label=One><option>Native only</option></optgroup></select>";
+          document.body.append(noLabel, multiLabel, multiple, groupLabel, grouped);
+          assert(!noLabel.shadowRoot && !noLabel.querySelector("select").hidden, "unlabeled select was enhanced");
+          assert(!multiple.shadowRoot && !multiple.querySelector("select").hidden, "multiple select was enhanced");
+          assert(!grouped.shadowRoot && !grouped.querySelector("select").hidden, "optgroup select was enhanced");
+        });
+
+        document.title = window.testFailures ? "Accessible select tests failed" : "Accessible select tests passed";
+      });
+    </script>
+  </body>
+</html>

@@ -59,26 +59,29 @@ export class AccessibleSelect extends HTMLElement {
       this.root = this.attachShadow({ mode: "open" });
       this.root.innerHTML = `
         <style>
-          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .75rem; --accessible-select-panel-gap: .375rem; --accessible-select-shadow: 0 12px 24px transparent; --accessible-select-shadow: 0 12px 24px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 22%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 6%, Canvas); color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
+          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-muted: GrayText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .625rem; --accessible-select-control-height: 2.75rem; --accessible-select-padding: .625rem .75rem; --accessible-select-panel-gap: .25rem; --accessible-select-shadow: 0 10px 15px -3px transparent; --accessible-select-shadow: 0 10px 15px -3px color-mix(in srgb, CanvasText 18%, transparent), 0 4px 6px -4px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 16%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 5%, Canvas); color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
           details { position: relative; }
           summary, input, select { box-sizing: border-box; font: inherit; width: 100%; }
-          summary { align-items: center; background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); color: var(--accessible-select-text); cursor: pointer; display: flex; gap: .75rem; justify-content: space-between; list-style: none; min-block-size: 3rem; padding: .625rem .875rem; text-align: start; }
+          summary { align-items: center; background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); color: var(--accessible-select-text); cursor: pointer; display: flex; gap: .75rem; justify-content: space-between; list-style: none; min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); text-align: start; }
           summary::-webkit-details-marker { display: none; }
-          summary:hover { background: var(--accessible-select-hover); }
+          summary:hover:not([aria-disabled="true"]) { background: var(--accessible-select-hover); }
           summary[aria-disabled="true"] { color: GrayText; cursor: not-allowed; }
           [part=value] { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          [part=panel] { background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); box-shadow: var(--accessible-select-shadow); color: var(--accessible-select-text); inset-block-start: calc(100% + var(--accessible-select-panel-gap)); inset-inline: 0; overflow: hidden; position: absolute; z-index: 1; }
-          [part=search] { background: var(--accessible-select-surface); border: 0; border-block-end: 1px solid var(--accessible-select-border); color: var(--accessible-select-text); min-block-size: 3rem; padding: .625rem .875rem; }
+          [part=value][data-placeholder] { color: var(--accessible-select-muted); }
+          [part=indicator] { block-size: .45rem; border-block-end: 2px solid currentColor; border-inline-end: 2px solid currentColor; flex: 0 0 auto; inline-size: .45rem; transform: rotate(45deg) translate(-.1rem, -.1rem); }
+          details[open] [part=indicator] { transform: rotate(225deg) translate(-.05rem, -.05rem); }
+          [part=panel] { background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); box-shadow: var(--accessible-select-shadow); color: var(--accessible-select-text); inset-block-start: calc(100% + var(--accessible-select-panel-gap)); inset-inline: 0; max-block-size: min(20rem, 60vh); overflow-x: hidden; overflow-y: auto; position: absolute; z-index: 1; }
+          [part=search] { background: var(--accessible-select-surface); border: 0; border-block-end: 1px solid var(--accessible-select-border); color: var(--accessible-select-text); min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); }
           [part=listbox] { background: var(--accessible-select-surface); border: 0; color: var(--accessible-select-text); display: block; padding-block: .25rem; }
           option:checked { background: Highlight; color: HighlightText; }
           [part=status] { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; white-space: nowrap; }
           [part=error] { border-block-start: 1px solid var(--accessible-select-border); margin: 0; padding: .625rem .875rem; }
-          :focus-visible { outline: 3px solid var(--accessible-select-focus); outline-offset: 3px; }
+          summary:focus-visible, [part=search]:focus-visible, [part=listbox]:focus-visible { outline: 2px solid var(--accessible-select-focus); outline-offset: 2px; }
           @media (prefers-reduced-motion: no-preference) { summary, [part=panel] { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease; } }
           @media (forced-colors: active) { [part=panel] { box-shadow: none; } }
           [hidden] { display: none !important; }
         </style>
-        <details><summary part="button" role="button" aria-expanded="false" aria-haspopup="listbox"><span part="value"></span><span aria-hidden="true">⌄</span></summary>
+        <details><summary part="button" role="button" aria-expanded="false" aria-haspopup="listbox"><span part="value"></span><span part="indicator" aria-hidden="true"></span></summary>
         <div part="panel" hidden>
           <input part="search" type="search" autocomplete="off">
           <output part="status" role="status" aria-live="polite" aria-atomic="true"></output>
@@ -202,6 +205,7 @@ export class AccessibleSelect extends HTMLElement {
       this.button.setAttribute("aria-disabled", String(this.select.disabled));
       this.button.setAttribute("aria-label", `${this.name}: ${value}`);
       this.value.textContent = value;
+      this.value.toggleAttribute("data-placeholder", Boolean(option?.disabled && !option.value));
       this.search.setAttribute("aria-label", this.message("search-label", "Search options"));
       this.search.placeholder = this.message("search-placeholder", "Search in list");
       if (this.select.disabled) this.close();

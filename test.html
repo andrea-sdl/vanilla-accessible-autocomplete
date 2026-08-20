@@ -74,6 +74,15 @@
           assert(value.textContent === "France", "initial visible value is wrong");
         });
 
+        await run("marks an empty disabled placeholder as a muted visible value", () => {
+          source.selectedIndex = 0;
+          control.refresh();
+          assert(value.hasAttribute("data-placeholder"), "placeholder has no visual state");
+          source.selectedIndex = sourceIndex("France");
+          control.refresh();
+          assert(!value.hasAttribute("data-placeholder"), "selected value kept placeholder state");
+        });
+
         await run("visible label activation opens the enhanced control and focuses search", () => {
           document.querySelector("label[for=country]").click();
           assert(disclosure.open && !panel.hidden, "label did not open the disclosure");

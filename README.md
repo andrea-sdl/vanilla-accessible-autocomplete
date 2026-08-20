@@ -12,9 +12,17 @@ root.
 
 ## Use
 
-Load `accessible-select.js`, then put exactly one supported select directly
-inside the custom element. Give the select an explicit `<label>`, `aria-label`,
-or `aria-labelledby` name.
+Add this module tag to load the current `main` version from GitHub through
+jsDelivr:
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@main/accessible-select.js"></script>
+```
+
+For a fixed production version, replace `main` with a Git tag or commit ID.
+
+Then put exactly one supported select directly inside the custom element. Give
+the select an explicit `<label>`, `aria-label`, or `aria-labelledby` name.
 
 ```html
 <label for="country">Select your country</label>
@@ -25,8 +33,10 @@ or `aria-labelledby` name.
     <option value="de">Germany</option>
   </select>
 </accessible-select>
-<script type="module" src="accessible-select.js"></script>
 ```
+
+To serve the checked-out file yourself, use
+`<script type="module" src="accessible-select.js"></script>` instead.
 
 The component preserves the selection the browser made while it parsed the
 source HTML. If no option has `selected`, it keeps the browser's normal
@@ -88,13 +98,14 @@ The validation error always uses the browser-provided, localized
 
 The component uses inherited fonts and CSS system colors. Its clean default
 uses these optional custom properties: `--accessible-select-surface`,
-`--accessible-select-text`, `--accessible-select-border`,
-`--accessible-select-focus`, `--accessible-select-radius`,
-`--accessible-select-panel-gap`, `--accessible-select-shadow`, and
-`--accessible-select-hover`.
+`--accessible-select-text`, `--accessible-select-muted`,
+`--accessible-select-border`, `--accessible-select-focus`,
+`--accessible-select-radius`, `--accessible-select-control-height`,
+`--accessible-select-padding`, `--accessible-select-panel-gap`,
+`--accessible-select-shadow`, and `--accessible-select-hover`.
 
-It exposes these shadow parts: `button`, `value`, `panel`, `search`,
-`listbox`, `status`, and `error`.
+It exposes these shadow parts: `button`, `value`, `indicator`, `panel`,
+`search`, `listbox`, `status`, and `error`.
 
 For example, a site can replace the default border and selected-list look with
 `::part()` rules:

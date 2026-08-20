@@ -14,7 +14,7 @@
   <body>
     <h1>Accessible select browser tests</h1>
     <form id="form">
-      <label for="country">Select your country</label>
+      <label for="country">Select your country (required)</label>
       <accessible-select id="control">
         <select id="country" name="country" required>
           <option value="" disabled>Choose a country</option>
@@ -70,6 +70,14 @@
           assert(source.hidden, "source select is still visible");
           assert(disclosure && button.tagName === "SUMMARY" && button.getAttribute("role") === "button", "disclosure is not accessible native details/summary");
           assert(list.tagName === "SELECT" && !list.name, "result list is not an unnamed native select");
+          assert(list.getAttribute("aria-label") === "Select your country (required)", "result list has no source label");
+          assert(list.getAttribute("aria-required") === "true", "result list did not mirror required state");
+          assert(search.getAttribute("aria-label").includes(search.placeholder), "search name does not include its visible label");
+          control.setAttribute("search-label", "Search countries");
+          control.setAttribute("search-placeholder", "Find countries");
+          assert(search.getAttribute("aria-label").includes(search.placeholder), "custom search name does not include its visible label");
+          control.removeAttribute("search-label");
+          control.removeAttribute("search-placeholder");
           assert(source.selectedIndex === sourceIndex("France"), "initial source selection changed");
           assert(value.textContent === "France", "initial visible value is wrong");
         });
@@ -208,6 +216,9 @@
           assert(!form.checkValidity(), "required select unexpectedly validated");
           assert(!panel.hidden && !error.hidden, "invalid select did not open the panel and error");
           assert(error.textContent === source.validationMessage && error.textContent, "error is not the browser validation message");
+          assert(list.getAttribute("aria-invalid") === "true", "invalid state was not exposed on the result list");
+          assert(!search.hasAttribute("aria-invalid"), "search filter was marked invalid");
+          assert([button, search, list].every(item => item.getAttribute("aria-describedby") === error.id), "error was not linked to the visible controls");
           assert(root.activeElement === search, "invalid select did not focus search");
         });
 
@@ -216,6 +227,7 @@
           await tick();
           assert(source.selectedIndex === sourceIndex("France"), "native reset did not restore initial selection");
           assert(value.textContent === "France", "visible value did not reset");
+          assert(!list.hasAttribute("aria-invalid") && [button, search, list].every(item => !item.hasAttribute("aria-describedby")), "valid reset kept invalid state");
         });
 
         await run("leaves unsupported markup as native fallback", () => {

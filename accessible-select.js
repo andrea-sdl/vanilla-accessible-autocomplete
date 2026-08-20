@@ -59,7 +59,7 @@ export class AccessibleSelect extends HTMLElement {
       this.root = this.attachShadow({ mode: "open" });
       this.root.innerHTML = `
         <style>
-          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-muted: GrayText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .625rem; --accessible-select-control-height: 2.75rem; --accessible-select-padding: .625rem .75rem; --accessible-select-panel-gap: .25rem; --accessible-select-shadow: 0 10px 15px -3px transparent; --accessible-select-shadow: 0 10px 15px -3px color-mix(in srgb, CanvasText 18%, transparent), 0 4px 6px -4px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 16%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 5%, Canvas); color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
+          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-muted: GrayText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .625rem; --accessible-select-control-height: 2.75rem; --accessible-select-padding: .625rem .75rem; --accessible-select-panel-gap: .25rem; --accessible-select-shadow: 0 10px 15px -3px transparent; --accessible-select-shadow: 0 10px 15px -3px color-mix(in srgb, CanvasText 18%, transparent), 0 4px 6px -4px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 50%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 5%, Canvas); color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
           details { position: relative; }
           summary, input, select { box-sizing: border-box; font: inherit; width: 100%; }
           summary { align-items: center; background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); color: var(--accessible-select-text); cursor: pointer; display: flex; gap: .75rem; justify-content: space-between; list-style: none; min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); text-align: start; }
@@ -98,6 +98,7 @@ export class AccessibleSelect extends HTMLElement {
       this.list = this.root.querySelector("[part=listbox]");
       this.error = this.root.querySelector("[part=error]");
       this.list.id = `accessible-select-list-${++listId}`;
+      this.error.id = `${this.list.id}-error`;
       this.search.setAttribute("aria-controls", this.list.id);
 
       this.select.addEventListener("input", () => this.refresh());
@@ -181,8 +182,7 @@ export class AccessibleSelect extends HTMLElement {
 
     attributeChangedCallback() {
       if (!this.ready) return;
-      this.search.setAttribute("aria-label", this.message("search-label", "Search options"));
-      this.search.placeholder = this.message("search-placeholder", "Search in list");
+      this.setSearchText();
       this.draw();
     }
 
@@ -204,6 +204,22 @@ export class AccessibleSelect extends HTMLElement {
       return this.getAttribute(name) ?? fallback;
     }
 
+    setSearchText() {
+      const label = this.message("search-label", "Search options");
+      const placeholder = this.message("search-placeholder", label);
+      this.search.setAttribute("aria-label", label.includes(placeholder) ? label : `${placeholder}. ${label}`);
+      this.search.placeholder = placeholder;
+    }
+
+    setInvalid(invalid) {
+      const id = this.error.id;
+      for (const item of [this.button, this.search, this.list]) {
+        invalid ? item.setAttribute("aria-describedby", id) : item.removeAttribute("aria-describedby");
+      }
+      invalid ? this.list.setAttribute("aria-invalid", "true") : this.list.removeAttribute("aria-invalid");
+      this.error.hidden = !invalid;
+    }
+
     refresh() {
       if (!this.ready) return;
       const option = this.select.options[this.select.selectedIndex];
@@ -211,13 +227,14 @@ export class AccessibleSelect extends HTMLElement {
       this.button.tabIndex = this.select.disabled ? -1 : 0;
       this.button.setAttribute("aria-disabled", String(this.select.disabled));
       this.button.setAttribute("aria-label", `${this.name}: ${value}`);
+      this.list.setAttribute("aria-label", this.name);
+      this.list.setAttribute("aria-required", String(this.select.required));
       this.value.textContent = value;
       this.value.toggleAttribute("data-placeholder", Boolean(option?.disabled && !option.value));
-      this.search.setAttribute("aria-label", this.message("search-label", "Search options"));
-      this.search.placeholder = this.message("search-placeholder", "Search in list");
+      this.setSearchText();
       if (this.select.disabled) this.close();
       this.draw();
-      if (this.select.validity.valid) this.error.hidden = true;
+      if (this.select.validity.valid) this.setInvalid(false);
     }
 
     open(focus = true) {
@@ -296,7 +313,7 @@ export class AccessibleSelect extends HTMLElement {
     showInvalid(event) {
       event.preventDefault();
       this.error.textContent = this.select.validationMessage;
-      this.error.hidden = false;
+      this.setInvalid(true);
       this.open();
     }
   }

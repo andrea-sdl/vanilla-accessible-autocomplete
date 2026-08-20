@@ -27,7 +27,7 @@ Then put exactly one supported select directly inside the custom element. Give
 the select an explicit `<label>`, `aria-label`, or `aria-labelledby` name.
 
 ```html
-<label for="country">Select your country</label>
+<label for="country">Select your country (required)</label>
 <accessible-select>
   <select id="country" name="country" required>
     <option value="" disabled>Choose a country</option>
@@ -78,6 +78,8 @@ selection stay in sync.
 - On invalid required submission, the panel opens, shows the browser's local
   `validationMessage`, announces it, and focuses the search input.
 
+For required fields, include the required state in the visible source label.
+
 If code changes the source select without dispatching its normal events, call
 `refresh()` on the custom element:
 
@@ -93,7 +95,7 @@ Set these optional attributes on `<accessible-select>`. Result strings may use
 | Attribute | Default |
 | --- | --- |
 | `search-label` | `Search options` |
-| `search-placeholder` | `Search in list` |
+| `search-placeholder` | `Search options` |
 | `result-message` | `{count} result` |
 | `results-message` | `{count} results` |
 | `no-results-message` | `No results` |

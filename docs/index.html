@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Accessible searchable select</title>
     <style>
-      :root { color-scheme: light dark; --surface: Canvas; --text: CanvasText; --muted: GrayText; --border: GrayText; --border: color-mix(in srgb, CanvasText 16%, Canvas); --soft: Canvas; --soft: color-mix(in srgb, CanvasText 4%, Canvas); --shadow: 0 18px 40px -28px transparent; --shadow: 0 18px 40px -28px color-mix(in srgb, CanvasText 50%, transparent); }
+      :root { color-scheme: light dark; --surface: Canvas; --text: CanvasText; --muted: GrayText; --border: GrayText; --border: color-mix(in srgb, CanvasText 50%, Canvas); --soft: Canvas; --soft: color-mix(in srgb, CanvasText 4%, Canvas); --shadow: 0 18px 40px -28px transparent; --shadow: 0 18px 40px -28px color-mix(in srgb, CanvasText 50%, transparent); }
       * { box-sizing: border-box; }
       body { background: Canvas; background: linear-gradient(145deg, var(--soft), Canvas 35%); color: var(--text); font: 1rem/1.5 system-ui, sans-serif; margin: 0; min-block-size: 100vh; padding: clamp(1rem, 5vw, 5rem) 1rem; }
       main { display: grid; gap: 1.5rem; margin-inline: auto; max-inline-size: 48rem; }
@@ -54,7 +54,7 @@
           <p class="section-copy">Search, choose an option, submit the native form value, or reset it.</p>
         </div>
         <form id="country-form">
-          <label for="country">Select your country</label>
+          <label for="country">Select your country (required)</label>
           <accessible-select>
             <select id="country" name="country" required>
               <option value="" disabled selected>Choose a country</option>
@@ -193,7 +193,7 @@
           <h2 id="integrate-title">Add it to a plain HTML form</h2>
           <p class="section-copy">Load the module, give the select an explicit label, and place it directly inside the component.</p>
         </div>
-        <pre><code>&lt;label for="country"&gt;Country&lt;/label&gt;
+        <pre><code>&lt;label for="country"&gt;Country (required)&lt;/label&gt;
 &lt;accessible-select&gt;
   &lt;select id="country" name="country" required&gt;
     &lt;option value="" disabled selected&gt;Choose a country&lt;/option&gt;

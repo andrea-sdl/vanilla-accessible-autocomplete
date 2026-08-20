@@ -30,7 +30,7 @@ let listId = 0;
 export class AccessibleSelect extends HTMLElement {
     static get observedAttributes() {
       return ["search-label", "search-placeholder", "result-message",
-        "results-message", "no-results-message"];
+        "results-message", "no-results-message", "more-results-message"];
     }
 
     connectedCallback() {
@@ -143,7 +143,14 @@ export class AccessibleSelect extends HTMLElement {
           this.close(true);
           return;
         }
-        if (/^(ArrowDown|ArrowUp|Home|End)$/.test(event.key) || event.key.length === 1) {
+        if (event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
+          event.preventDefault();
+          this.search.value += event.key;
+          this.draw();
+          this.search.focus();
+          return;
+        }
+        if (/^(ArrowDown|ArrowUp|Home|End)$/.test(event.key)) {
           setTimeout(() => this.pick());
         }
       });
@@ -236,18 +243,29 @@ export class AccessibleSelect extends HTMLElement {
       const query = searchText(this.search.value);
       const shown = [...this.select.options].flatMap((option, index) =>
         !query || searchText(optionText(option)).includes(query) ? [[option, index]] : []);
+      const limited = !query && shown.length > 10;
+      const selected = shown.find(([, index]) => index === this.select.selectedIndex);
+      const visible = limited ? shown.slice(0, 10) : shown;
+      if (limited && selected && !visible.includes(selected)) visible[visible.length - 1] = selected;
       const fragment = document.createDocumentFragment();
 
-      for (const [option, index] of shown) {
+      for (const [option, index] of visible) {
         const item = document.createElement("option");
         item.value = index;
         item.disabled = option.disabled;
         item.textContent = optionText(option);
         fragment.append(item);
       }
+      if (limited) {
+        const hint = document.createElement("option");
+        hint.value = -1;
+        hint.disabled = true;
+        hint.textContent = this.message("more-results-message", "Search to see them all");
+        fragment.append(hint);
+      }
       this.list.replaceChildren(fragment);
-      this.list.size = Math.max(2, Math.min(6, shown.length));
-      this.list.selectedIndex = shown.findIndex(([, index]) => index === this.select.selectedIndex);
+      this.list.size = Math.max(2, Math.min(6, visible.length + Number(limited)));
+      this.list.selectedIndex = visible.findIndex(([, index]) => index === this.select.selectedIndex);
       const count = shown.length;
       this.status.textContent = count === 0
         ? this.message("no-results-message", "No results")

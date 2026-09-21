@@ -30,7 +30,7 @@ let listId = 0;
 export class AccessibleSelect extends HTMLElement {
     static get observedAttributes() {
       return ["search-label", "search-placeholder", "result-message",
-        "results-message", "no-results-message", "more-results-message"];
+        "results-message", "no-results-message", "more-results-message", "clear-label"];
     }
 
     connectedCallback() {
@@ -56,6 +56,24 @@ export class AccessibleSelect extends HTMLElement {
       this.name = name;
       this.labels = [...select.labels || []];
       this.select.hidden = true;
+      this.render();
+      this.bindElements();
+      this.bindEvents();
+      this.reset = () => setTimeout(() => this.refresh());
+      this.labelClick = event => {
+        event.preventDefault();
+        this.open();
+      };
+      this.dismiss = event => {
+        if (!this.contains(event.target)) this.close();
+      };
+      this.bindForm();
+      this.bindLabels();
+      this.select.ownerDocument.addEventListener("pointerdown", this.dismiss);
+      this.refresh();
+    }
+
+    render() {
       this.root = this.attachShadow({ mode: "open" });
       this.root.innerHTML = `
         <style>
@@ -71,36 +89,67 @@ export class AccessibleSelect extends HTMLElement {
           [part=indicator] { block-size: .45rem; border-block-end: 2px solid currentColor; border-inline-end: 2px solid currentColor; flex: 0 0 auto; inline-size: .45rem; transform: rotate(45deg) translate(-.1rem, -.1rem); }
           details[open] [part=indicator] { transform: rotate(225deg) translate(-.05rem, -.05rem); }
           [part=panel] { background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); box-shadow: var(--accessible-select-shadow); color: var(--accessible-select-text); inset-block-start: calc(100% + var(--accessible-select-panel-gap)); inset-inline: 0; max-block-size: min(20rem, 60vh); overflow-x: hidden; overflow-y: auto; position: absolute; z-index: 1; }
-          [part=search] { background: var(--accessible-select-surface); border: 0; border-block-end: 1px solid var(--accessible-select-border); color: var(--accessible-select-text); min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); }
+          [part=search-wrap] { align-items: center; border-block-end: 1px solid var(--accessible-select-border); display: flex; }
+          [part=search] { background: var(--accessible-select-surface); border: 0; color: var(--accessible-select-text); min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); }
+          [part=search]::-webkit-search-cancel-button { display: none; }
+          [part=clear] { background: none; border: 0; color: var(--accessible-select-muted); cursor: pointer; flex: 0 0 auto; font: inherit; line-height: 1; min-block-size: var(--accessible-select-control-height); min-inline-size: var(--accessible-select-control-height); }
+          [part=clear]:hover { color: var(--accessible-select-text); }
           [part=listbox] { background: var(--accessible-select-surface); border: 0; color: var(--accessible-select-text); display: block; padding-block: .25rem; }
+          option { padding-block: .5rem; padding-inline: .75rem; }
           option:checked { background: Highlight; color: HighlightText; }
-          [part=status] { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; white-space: nowrap; }
+          option:hover:not(:disabled):not(:checked) { background: var(--accessible-select-hover); color: var(--accessible-select-text); }
+          [part=status], [part=name], [part=search-label], [part=clear] > span:first-child { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; white-space: nowrap; }
+          [part=hint], [part=empty] { color: var(--accessible-select-muted); margin: 0; padding: .5rem .875rem; border-block-start: 1px solid var(--accessible-select-border); }
           [part=error] { border-block-start: 1px solid var(--accessible-select-border); margin: 0; padding: .625rem .875rem; }
-          summary:focus-visible, [part=search]:focus-visible, [part=listbox]:focus-visible { outline: 2px solid var(--accessible-select-focus); outline-offset: 2px; }
+          [part=panel][data-placement=above] { inset-block-start: auto; inset-block-end: calc(100% + var(--accessible-select-panel-gap)); }
+          summary:focus-visible { outline: 2px solid var(--accessible-select-focus); outline-offset: 2px; }
+          [part=search]:focus-visible, [part=listbox]:focus-visible { outline: 2px solid var(--accessible-select-focus); outline-offset: -2px; }
           @media (prefers-reduced-motion: no-preference) { summary, [part=panel] { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease; } }
+          @media (pointer: coarse) { option { padding-block: .75rem; } }
           @media (forced-colors: active) { [part=panel] { box-shadow: none; } }
           [hidden] { display: none !important; }
         </style>
-        <details><summary part="button" role="button" aria-expanded="false" aria-haspopup="listbox"><span part="value"></span><span part="indicator" aria-hidden="true"></span></summary>
+        <details><summary part="button" role="button" aria-expanded="false" aria-haspopup="listbox"><span part="name"></span><span part="value"></span><span part="indicator" aria-hidden="true"></span></summary>
         <div part="panel" hidden>
-          <input part="search" type="search" autocomplete="off">
+          <div part="search-wrap">
+            <label part="search-label"></label>
+            <input part="search" type="search" autocomplete="off">
+            <button part="clear" type="button" hidden><span></span><span aria-hidden="true">\u00d7</span></button>
+          </div>
           <output part="status" role="status" aria-live="polite" aria-atomic="true"></output>
           <select part="listbox" size="2"></select>
+          <p part="hint" hidden></p>
+          <p part="empty" hidden></p>
           <p part="error" role="alert" aria-atomic="true" hidden></p>
         </div></details>`;
+    }
 
+    bindElements() {
       this.disclosure = this.root.querySelector("details");
       this.button = this.root.querySelector("summary");
       this.value = this.root.querySelector("[part=value]");
       this.panel = this.root.querySelector("[part=panel]");
       this.search = this.root.querySelector("[part=search]");
+      this.searchLabel = this.root.querySelector("[part=search-label]");
+      this.clear = this.root.querySelector("[part=clear]");
+      this.clearText = this.clear.firstElementChild;
+      this.hint = this.root.querySelector("[part=hint]");
+      this.empty = this.root.querySelector("[part=empty]");
+      this.nameLabel = this.root.querySelector("[part=name]");
       this.status = this.root.querySelector("[part=status]");
       this.list = this.root.querySelector("[part=listbox]");
       this.error = this.root.querySelector("[part=error]");
       this.list.id = `accessible-select-list-${++listId}`;
       this.error.id = `${this.list.id}-error`;
+      this.nameLabel.id = `${this.list.id}-name`;
+      this.value.id = `${this.list.id}-value`;
+      this.search.id = `${this.list.id}-search`;
+      this.searchLabel.htmlFor = this.search.id;
+      this.button.setAttribute("aria-labelledby", `${this.nameLabel.id} ${this.value.id}`);
       this.search.setAttribute("aria-controls", this.list.id);
+    }
 
+    bindEvents() {
       this.select.addEventListener("input", () => this.refresh());
       this.select.addEventListener("change", () => this.refresh());
       this.select.addEventListener("invalid", event => this.showInvalid(event));
@@ -125,7 +174,15 @@ export class AccessibleSelect extends HTMLElement {
         } else if (event.key === "ArrowDown" && this.list.options.length) {
           event.preventDefault();
           this.list.focus();
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          this.commit();
         }
+      });
+      this.clear.addEventListener("click", () => {
+        this.search.value = "";
+        this.draw();
+        this.search.focus();
       });
       this.list.addEventListener("input", () => this.choose());
       this.list.addEventListener("change", () => this.choose());
@@ -137,40 +194,38 @@ export class AccessibleSelect extends HTMLElement {
         if (this.listClicked && this.pick()) this.close(true);
         this.listClicked = false;
       });
-      this.list.addEventListener("keydown", event => {
-        this.listClicked = false;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          this.close(true);
-          return;
-        }
-        if (event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          this.search.value += event.key;
-          this.draw();
-          this.search.focus();
-          return;
-        }
-        if (/^(ArrowDown|ArrowUp|Home|End)$/.test(event.key)) {
-          setTimeout(() => this.pick());
-        }
-      });
+      this.list.addEventListener("keydown", event => this.listKeydown(event));
       this.root.addEventListener("focusout", () => queueMicrotask(() => {
         if (!this.matches(":focus-within")) this.close();
       }));
+    }
 
-      this.reset = () => setTimeout(() => this.refresh());
-      this.labelClick = event => {
+    listKeydown(event) {
+      this.listClicked = false;
+      if (event.isComposing || event.key === "Process") return;
+      if (event.key === "Escape") {
         event.preventDefault();
-        this.open();
-      };
-      this.dismiss = event => {
-        if (!this.contains(event.target)) this.close();
-      };
-      this.bindForm();
-      this.bindLabels();
-      this.select.ownerDocument.addEventListener("pointerdown", this.dismiss);
-      this.refresh();
+        this.close(true);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        if (this.pick()) this.close(true);
+        return;
+      }
+      if (event.key === "Backspace") {
+        event.preventDefault();
+        this.search.value = this.search.value.slice(0, -1);
+        this.draw();
+        this.search.focus();
+        return;
+      }
+      if (event.key.length === 1 && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        this.search.value += event.key;
+        this.draw();
+        this.search.focus();
+      }
     }
 
     disconnectedCallback() {
@@ -206,9 +261,24 @@ export class AccessibleSelect extends HTMLElement {
 
     setSearchText() {
       const label = this.message("search-label", "Search options");
-      const placeholder = this.message("search-placeholder", label);
-      this.search.setAttribute("aria-label", label.includes(placeholder) ? label : `${placeholder}. ${label}`);
-      this.search.placeholder = placeholder;
+      this.searchLabel.textContent = label;
+      this.search.placeholder = this.message("search-placeholder", label);
+      this.clearText.textContent = this.message("clear-label", "Clear search");
+    }
+
+    setStatus(text, now = false) {
+      clearTimeout(this.statusTimer);
+      if (text === this.status.textContent) return;
+      if (now) this.status.textContent = text;
+      else this.statusTimer = setTimeout(() => this.status.textContent = text, 300);
+    }
+
+    place() {
+      const rect = this.disclosure.getBoundingClientRect();
+      const height = this.panel.offsetHeight;
+      const below = window.innerHeight - rect.bottom;
+      if (below < height && rect.top > below) this.panel.dataset.placement = "above";
+      else delete this.panel.dataset.placement;
     }
 
     setInvalid(invalid) {
@@ -216,7 +286,9 @@ export class AccessibleSelect extends HTMLElement {
       for (const item of [this.button, this.search, this.list]) {
         invalid ? item.setAttribute("aria-describedby", id) : item.removeAttribute("aria-describedby");
       }
-      invalid ? this.list.setAttribute("aria-invalid", "true") : this.list.removeAttribute("aria-invalid");
+      for (const item of [this.button, this.list]) {
+        invalid ? item.setAttribute("aria-invalid", "true") : item.removeAttribute("aria-invalid");
+      }
       this.error.hidden = !invalid;
     }
 
@@ -226,7 +298,7 @@ export class AccessibleSelect extends HTMLElement {
       const value = option ? optionText(option) : "";
       this.button.tabIndex = this.select.disabled ? -1 : 0;
       this.button.setAttribute("aria-disabled", String(this.select.disabled));
-      this.button.setAttribute("aria-label", `${this.name}: ${value}`);
+      this.nameLabel.textContent = this.name;
       this.list.setAttribute("aria-label", this.name);
       this.list.setAttribute("aria-required", String(this.select.required));
       this.value.textContent = value;
@@ -243,11 +315,14 @@ export class AccessibleSelect extends HTMLElement {
       this.panel.hidden = false;
       this.button.setAttribute("aria-expanded", "true");
       this.draw();
+      this.setStatus(this.statusText, true);
+      this.place();
       if (focus) this.search.focus();
     }
 
     close(focus = false) {
       if (!this.ready) return;
+      clearTimeout(this.statusTimer);
       this.search.value = "";
       this.draw();
       this.disclosure.open = false;
@@ -271,23 +346,30 @@ export class AccessibleSelect extends HTMLElement {
         item.value = index;
         item.disabled = option.disabled;
         item.textContent = optionText(option);
+        item.title = optionText(option);
         fragment.append(item);
       }
-      if (limited) {
-        const hint = document.createElement("option");
-        hint.value = -1;
-        hint.disabled = true;
-        hint.textContent = this.message("more-results-message", "Search to see them all");
-        fragment.append(hint);
-      }
       this.list.replaceChildren(fragment);
-      this.list.size = Math.max(2, Math.min(6, visible.length + Number(limited)));
+      this.list.size = Math.max(2, Math.min(6, visible.length));
       this.list.selectedIndex = visible.findIndex(([, index]) => index === this.select.selectedIndex);
-      const count = shown.length;
-      this.status.textContent = count === 0
+      this.drawMessages(shown.length, visible.length, limited);
+      if (this.disclosure.open) this.place();
+    }
+
+    drawMessages(count, shownCount, limited) {
+      this.list.hidden = count === 0;
+      this.empty.hidden = count > 0;
+      this.empty.textContent = this.message("no-results-message", "No results");
+      this.hint.hidden = !limited;
+      this.hint.textContent = this.message("more-results-message",
+        "Showing {shown} of {count}. Search to see them all")
+        .replaceAll("{shown}", shownCount).replaceAll("{count}", count);
+      this.clear.hidden = !this.search.value;
+      this.statusText = count === 0
         ? this.message("no-results-message", "No results")
         : this.message(count === 1 ? "result-message" : "results-message",
           count === 1 ? "{count} result" : "{count} results").replaceAll("{count}", count);
+      this.setStatus(this.statusText);
     }
 
     pick() {
@@ -307,7 +389,18 @@ export class AccessibleSelect extends HTMLElement {
     choose() {
       const close = this.listClicked;
       this.listClicked = false;
-      if (this.pick() && close) this.close(true);
+      if (close && this.pick()) this.close(true);
+    }
+
+    commit() {
+      const items = [...this.list.options];
+      const current = items[this.list.selectedIndex];
+      const selectable = items.filter(item => !item.disabled);
+      const target = current && !current.disabled ? current
+        : selectable.length === 1 ? selectable[0] : null;
+      if (!target) return;
+      this.list.selectedIndex = items.indexOf(target);
+      if (this.pick()) this.close(true);
     }
 
     showInvalid(event) {

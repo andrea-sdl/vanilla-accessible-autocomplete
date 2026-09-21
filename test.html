@@ -33,6 +33,7 @@
     <ol id="results"></ol>
     <script type="module">
       const tick = () => new Promise(resolve => setTimeout(resolve));
+      const settle = () => new Promise(resolve => setTimeout(resolve, 350));
       const results = document.querySelector("#results");
       const assert = (condition, message) => {
         if (!condition) throw new Error(message);
@@ -63,6 +64,11 @@
         const search = root.querySelector("[part=search]");
         const list = root.querySelector("[part=listbox]");
         const error = root.querySelector("[part=error]");
+        const name = root.querySelector("[part=name]");
+        const status = root.querySelector("[part=status]");
+        const clear = root.querySelector("[part=clear]");
+        const hint = root.querySelector("[part=hint]");
+        const empty = root.querySelector("[part=empty]");
         const sourceIndex = text => [...source.options].findIndex(option => option.text === text);
         const listIndex = text => [...list.options].findIndex(option => option.text === text);
 
@@ -72,14 +78,23 @@
           assert(list.tagName === "SELECT" && !list.name, "result list is not an unnamed native select");
           assert(list.getAttribute("aria-label") === "Select your country (required)", "result list has no source label");
           assert(list.getAttribute("aria-required") === "true", "result list did not mirror required state");
-          assert(search.getAttribute("aria-label").includes(search.placeholder), "search name does not include its visible label");
+          assert(!search.hasAttribute("aria-label"), "search is still named by aria-label");
+          assert(search.labels[0]?.textContent === "Search options", "search has no visible label element");
+          assert(search.placeholder === "Search options", "search has no default placeholder");
           control.setAttribute("search-label", "Search countries");
           control.setAttribute("search-placeholder", "Find countries");
-          assert(search.getAttribute("aria-label").includes(search.placeholder), "custom search name does not include its visible label");
+          assert(search.labels[0].textContent === "Search countries" && search.placeholder === "Find countries", "attribute changes did not update the search label and placeholder");
           control.removeAttribute("search-label");
           control.removeAttribute("search-placeholder");
           assert(source.selectedIndex === sourceIndex("France"), "initial source selection changed");
           assert(value.textContent === "France", "initial visible value is wrong");
+        });
+
+        await run("names the summary with a hidden name span and the visible value", () => {
+          assert(!button.hasAttribute("aria-label"), "summary is still named by aria-label");
+          const ids = (button.getAttribute("aria-labelledby") || "").split(/\s+/);
+          assert(ids.length === 2 && ids[0] === name.id && ids[1] === value.id, "summary is not labelled by the name and value spans");
+          assert(name.textContent === "Select your country (required)", "hidden name span does not carry the source label");
         });
 
         await run("marks an empty disabled placeholder as a muted visible value", () => {
@@ -123,6 +138,7 @@
           search.value = "Germany";
           search.dispatchEvent(new Event("input", { bubbles: true }));
           document.querySelector("#outside").focus();
+          search.dispatchEvent(new FocusEvent("focusout", { bubbles: true, composed: true }));
           await tick();
           assert(source.value === "fr", "blur selected the exact result");
           assert(search.value === "" && list.options.length === source.options.length, "close did not rebuild the full list");
@@ -134,6 +150,7 @@
           let changes = 0;
           source.addEventListener("input", () => inputs++, { once: true });
           source.addEventListener("change", () => changes++, { once: true });
+          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
           list.selectedIndex = listIndex("Duplicate two");
           list.dispatchEvent(new Event("input", { bubbles: true }));
           assert(source.selectedIndex === sourceIndex("Duplicate two"), "selected the wrong duplicate value");
@@ -152,6 +169,8 @@
 
         await run("keeps disabled options visible but cannot commit them", () => {
           const before = source.selectedIndex;
+          if (panel.hidden) button.click();
+          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
           list.selectedIndex = listIndex("Unavailable country");
           list.dispatchEvent(new Event("input", { bubbles: true }));
           assert(list.options[listIndex("Unavailable country")].disabled, "disabled option is not represented as disabled");
@@ -164,16 +183,51 @@
           assert(value.textContent === "Côte d’Ivoire", "refresh did not copy the source selection");
         });
 
-        await run("commits the native list current option for Arrow, Home, and End keys", async () => {
+        await run("arrow, Home, and End keys browse the list without committing", async () => {
+          control.open();
+          const before = source.selectedIndex;
           for (const [key, text] of [["ArrowDown", "Germany"], ["Home", "France"], ["End", "Duplicate two"]]) {
             list.selectedIndex = listIndex(text);
             list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+            list.dispatchEvent(new Event("input", { bubbles: true }));
             await tick();
-            assert(source.selectedIndex === sourceIndex(text), `${key} did not commit the native current option`);
+            assert(source.selectedIndex === before, `${key} committed the current option`);
           }
-          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
           assert(panel.hidden, "Escape did not close the panel");
-          assert(source.selectedIndex === sourceIndex("Duplicate two"), "Escape reverted a committed option");
+          assert(source.selectedIndex === before, "Escape after browsing changed the source value");
+        });
+
+        await run("Enter in the result list commits and returns focus to the summary", () => {
+          control.open();
+          list.selectedIndex = listIndex("Germany");
+          list.focus();
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          assert(source.selectedIndex === sourceIndex("Germany"), "Enter did not commit the current option");
+          assert(panel.hidden, "Enter did not close the panel");
+          assert(root.activeElement === button, "Enter did not return focus to the summary");
+        });
+
+        await run("Enter in search commits the only remaining result", () => {
+          control.open();
+          search.value = "cote";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          search.focus();
+          search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          assert(source.selectedIndex === sourceIndex("C\u00f4te d\u2019Ivoire"), "Enter in search did not commit the single result");
+          assert(panel.hidden, "Enter in search did not close the panel");
+        });
+
+        await run("Enter in search does nothing when the results are ambiguous", () => {
+          control.open();
+          const before = source.selectedIndex;
+          search.value = "duplicate";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          search.focus();
+          search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          assert(source.selectedIndex === before, "ambiguous Enter committed a value");
+          assert(!panel.hidden, "ambiguous Enter closed the panel");
+          control.close();
         });
 
         await run("typing in the result list returns to search and filters without committing", () => {
@@ -185,6 +239,65 @@
           assert(search.value === "p", "typed character did not move to search");
           assert(list.options.length === 2, "search did not filter duplicate options");
           assert(source.value === before, "typing in the list committed a value");
+          control.close();
+        });
+
+        await run("Backspace from the result list edits the search and returns focus", () => {
+          control.open();
+          search.value = "ger";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          list.focus();
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true, cancelable: true }));
+          assert(search.value === "ge", "Backspace did not remove the last search character");
+          assert(root.activeElement === search, "Backspace did not return focus to search");
+          control.close();
+        });
+
+        await run("the clear button appears with a query and resets the search", () => {
+          control.open();
+          assert(clear.hidden, "clear button is visible with an empty search");
+          search.value = "ger";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(!clear.hidden, "clear button stayed hidden with a query");
+          assert(clear.textContent.includes("Clear search"), "clear button has no accessible text");
+          clear.click();
+          assert(search.value === "", "clear button did not clear the search");
+          assert(root.activeElement === search, "clear button did not focus search");
+          assert(clear.hidden && list.options.length === source.options.length, "clear button did not rebuild the full list");
+          control.close();
+        });
+
+        await run("an empty result set hides the list and shows the empty paragraph", () => {
+          control.open();
+          search.value = "zzz";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(list.hidden, "empty result set kept the list visible");
+          assert(!empty.hidden && empty.textContent === "No results", "empty result set showed no message");
+          search.value = "";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(!list.hidden && empty.hidden, "clearing the search did not restore the list");
+          control.close();
+        });
+
+        await run("rapid typing announces one final result count", async () => {
+          control.open();
+          await settle();
+          const before = status.textContent;
+          search.value = "d";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          search.value = "germany";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(status.textContent === before, "status announced an intermediate result count");
+          await settle();
+          assert(status.textContent === "1 result", "status did not settle on the final result count");
+          control.close();
+        });
+
+        await run("the open panel records a supported placement", () => {
+          assert(typeof control.place === "function", "place() is missing");
+          control.open();
+          const placement = panel.dataset.placement;
+          assert(placement === undefined || placement === "above", "panel recorded an unknown placement");
           control.close();
         });
 
@@ -203,11 +316,13 @@
           document.body.append(label, control);
           const list = control.shadowRoot.querySelector("[part=listbox]");
           const items = [...list.options];
-          const hint = items[items.length - 1];
-          assert(items.filter(option => option.value !== "-1").length === 10, "long list showed more than 10 options");
+          const hint = control.shadowRoot.querySelector("[part=hint]");
+          assert(items.length === 10, "long list showed more than 10 options");
+          assert(!items.some(option => option.value === "-1"), "long list still uses a disabled hint option");
           assert(items.some(option => option.text === "Item 100"), "selected option was not visible");
           assert(list.options[list.selectedIndex].text === "Item 100", "selected option was not current in the list");
-          assert(hint.disabled && hint.text === "Search to see them all", "long list did not give a search hint");
+          assert(items.every(option => option.title === option.text), "options carry no tooltip text");
+          assert(!hint.hidden && hint.textContent === "Showing 10 of 100. Search to see them all", "long list did not give a search hint paragraph");
         });
 
         await run("opens on native required validation and announces the browser message", () => {
@@ -216,7 +331,7 @@
           assert(!form.checkValidity(), "required select unexpectedly validated");
           assert(!panel.hidden && !error.hidden, "invalid select did not open the panel and error");
           assert(error.textContent === source.validationMessage && error.textContent, "error is not the browser validation message");
-          assert(list.getAttribute("aria-invalid") === "true", "invalid state was not exposed on the result list");
+          assert(list.getAttribute("aria-invalid") === "true" && button.getAttribute("aria-invalid") === "true", "invalid state was not exposed on the summary and the result list");
           assert(!search.hasAttribute("aria-invalid"), "search filter was marked invalid");
           assert([button, search, list].every(item => item.getAttribute("aria-describedby") === error.id), "error was not linked to the visible controls");
           assert(root.activeElement === search, "invalid select did not focus search");
@@ -227,7 +342,7 @@
           await tick();
           assert(source.selectedIndex === sourceIndex("France"), "native reset did not restore initial selection");
           assert(value.textContent === "France", "visible value did not reset");
-          assert(!list.hasAttribute("aria-invalid") && [button, search, list].every(item => !item.hasAttribute("aria-describedby")), "valid reset kept invalid state");
+          assert([button, list].every(item => !item.hasAttribute("aria-invalid")) && [button, search, list].every(item => !item.hasAttribute("aria-describedby")), "valid reset kept invalid state");
         });
 
         await run("leaves unsupported markup as native fallback", () => {

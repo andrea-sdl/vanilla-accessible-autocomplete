@@ -14,13 +14,13 @@ root.
 
 ## Integrate
 
-Add this module tag to load the `v0.1.0` release from GitHub through jsDelivr:
+Add this module tag to load the `v0.2.0` release from GitHub through jsDelivr:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.1.0/accessible-select.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.0/accessible-select.js"></script>
 ```
 
-For a newer release, replace `v0.1.0` with its Git tag. Use `main` only to
+For a newer release, replace `v0.2.0` with its Git tag. Use `main` only to
 test unreleased changes.
 
 Then put exactly one supported select directly inside the custom element. Give
@@ -63,12 +63,27 @@ selection stay in sync.
 - Clicking the source label opens the disclosure and focuses search. A pointer
   click outside closes it, including on non-focusable page content.
 - A pointer click on a selectable result commits it and closes the panel.
-- Arrow keys, Home, and End commit the native current option but keep the panel
-  open. Typing while the result list has focus returns focus to search and
-  filters the list.
+- Arrow keys, Home, and End only browse the result list. They never change the
+  form value. Enter commits the current option, closes the panel, and returns
+  focus to the summary button. Enter in the search field commits the current
+  option, or the only selectable result when there is exactly one. Escape and
+  moving focus away close the panel without committing.
+- Typing while the result list has focus returns focus to search and filters
+  the list. Backspace from the result list removes the last search character
+  and returns focus to search.
+- The search field has a clear button that appears once the field has text. It
+  clears the search and returns focus to the field. Set `clear-label` to
+  translate its name.
+- When a search matches nothing, the result list is hidden and the panel shows
+  the `no-results-message` paragraph instead.
 - When an empty search has more than 10 results, the list shows 10 options,
-  always including the selected option, plus a search hint. Search filters all
-  options. Set `more-results-message` to translate that hint.
+  always including the selected option, and a hint paragraph below the list.
+  Search filters all options. Set `more-results-message` to translate that
+  hint; it may use `{shown}` and `{count}`.
+- The panel opens below the button, and flips above it when the viewport has
+  no room below and more room above.
+- Each result carries its full label as a `title`, so a truncated label still
+  shows its complete text on hover.
 - Closing clears the search and rebuilds the complete list around the committed
   source selection. Escape never reverses an already committed change.
 - The source emits bubbling native `input` and `change` events after a user
@@ -90,7 +105,7 @@ document.querySelector("accessible-select").refresh();
 ## Localized text
 
 Set these optional attributes on `<accessible-select>`. Result strings may use
-`{count}`.
+`{count}`. The more-results text may also use `{shown}`.
 
 | Attribute | Default |
 | --- | --- |
@@ -99,7 +114,8 @@ Set these optional attributes on `<accessible-select>`. Result strings may use
 | `result-message` | `{count} result` |
 | `results-message` | `{count} results` |
 | `no-results-message` | `No results` |
-| `more-results-message` | `Search to see them all` |
+| `more-results-message` | `Showing {shown} of {count}. Search to see them all` |
+| `clear-label` | `Clear search` |
 
 The validation error always uses the browser-provided, localized
 `select.validationMessage`.
@@ -114,8 +130,12 @@ uses these optional custom properties: `--accessible-select-surface`,
 `--accessible-select-padding`, `--accessible-select-panel-gap`,
 `--accessible-select-shadow`, and `--accessible-select-hover`.
 
-It exposes these shadow parts: `button`, `value`, `indicator`, `panel`,
-`search`, `listbox`, `status`, and `error`.
+It exposes these shadow parts: `button`, `name`, `value`, `indicator`, `panel`,
+`search-wrap`, `search-label`, `search`, `clear`, `listbox`, `status`, `hint`,
+`empty`, and `error`.
+
+Safari ignores `padding` on `<option>` elements, so touch targets in the result
+list follow its own option metrics there.
 
 For example, a site can replace the default border and selected-list look with
 `::part()` rules:
@@ -131,6 +151,30 @@ accessible-select {
   --accessible-select-panel-gap: 0;
 }
 ```
+
+## Browser support
+
+The component targets modern evergreen browsers. `color-mix()` is only used in
+the `:host` custom-property defaults, and every one of those declarations is
+preceded by a plain fallback declaration, so a browser without `color-mix()`
+keeps the earlier system-color value. All custom properties are declared on
+`:host`, so a page can override any of them without the component losing a
+default. Safari ignores `option` padding.
+
+## Screen reader checklist
+
+Automated accessibility coverage (axe, Playwright) is a possible follow-up, but
+it would add a dev dependency, which this project does not have. Until then,
+check manually with VoiceOver + Safari, NVDA + Firefox, and TalkBack + Chrome:
+
+- The button announces the field name, the current value, its expanded state,
+  and its listbox popup, each once.
+- The search field announces its own label, not the surrounding text.
+- The result count is announced once, after typing pauses.
+- Arrow keys read options without changing the announced button value.
+- Enter commits the current option and returns focus to the button.
+- A validation error is announced and is linked to the button, search field,
+  and result list.
 
 ## Demo and tests
 

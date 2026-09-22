@@ -173,6 +173,7 @@ export class AccessibleSelect extends HTMLElement {
           this.close(true);
         } else if (event.key === "ArrowDown" && this.list.options.length) {
           event.preventDefault();
+          this.highlight();
           this.list.focus();
         } else if (event.key === "Enter") {
           event.preventDefault();
@@ -195,6 +196,7 @@ export class AccessibleSelect extends HTMLElement {
         this.listClicked = false;
       });
       this.list.addEventListener("keydown", event => this.listKeydown(event));
+      this.list.addEventListener("focus", () => this.highlight());
       this.root.addEventListener("focusout", () => queueMicrotask(() => {
         if (!this.matches(":focus-within")) this.close();
       }));
@@ -384,6 +386,13 @@ export class AccessibleSelect extends HTMLElement {
       this.select.dispatchEvent(new Event("input", { bubbles: true }));
       this.select.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
+    }
+
+    highlight() {
+      // Keyboard users need a selected option for Enter to pick.
+      const items = [...this.list.options];
+      if (items[this.list.selectedIndex] && !items[this.list.selectedIndex].disabled) return;
+      this.list.selectedIndex = items.findIndex(item => !item.disabled);
     }
 
     choose() {

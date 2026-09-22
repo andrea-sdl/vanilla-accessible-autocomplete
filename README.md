@@ -14,13 +14,13 @@ root.
 
 ## Integrate
 
-Add this module tag to load the `v0.2.2` release from GitHub through jsDelivr:
+Add this module tag to load the `v0.2.3` release from GitHub through jsDelivr:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.2/accessible-select.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.3/accessible-select.js"></script>
 ```
 
-For a newer release, replace `v0.2.2` with its Git tag. Use `main` only to
+For a newer release, replace `v0.2.3` with its Git tag. Use `main` only to
 test unreleased changes.
 
 Then put exactly one supported select directly inside the custom element. Give
@@ -65,9 +65,11 @@ selection stay in sync.
 - A pointer click on a selectable result commits it and closes the panel.
 - Arrow keys, Home, and End only browse the result list. They never change the
   form value. Enter commits the current option, closes the panel, and returns
-  focus to the summary button. Enter in the search field commits the current
-  option, or the only selectable result when there is exactly one. Escape and
-  moving focus away close the panel without committing.
+  focus to the summary button. Enter in the search field with an empty search
+  commits the current option, or the only selectable result when there is
+  exactly one. After typing, Enter picks the best selectable match: a label
+  equal to the search, then the first label starting with it, then the first
+  result. Escape and moving focus away close the panel without committing.
 - Typing while the result list has focus returns focus to search and filters
   the list. Backspace from the result list removes the last search character
   and returns focus to search.

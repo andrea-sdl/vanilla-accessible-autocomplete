@@ -14,13 +14,13 @@ root.
 
 ## Integrate
 
-Add this module tag to load the `v0.2.0` release from GitHub through jsDelivr:
+Add this module tag to load the `v0.2.1` release from GitHub through jsDelivr:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.0/accessible-select.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.1/accessible-select.js"></script>
 ```
 
-For a newer release, replace `v0.2.0` with its Git tag. Use `main` only to
+For a newer release, replace `v0.2.1` with its Git tag. Use `main` only to
 test unreleased changes.
 
 Then put exactly one supported select directly inside the custom element. Give

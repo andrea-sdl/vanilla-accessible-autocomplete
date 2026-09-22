@@ -208,6 +208,19 @@
           assert(root.activeElement === button, "Enter did not return focus to the summary");
         });
 
+        await run("entering a filtered list without a selection highlights the first result for Enter", () => {
+          control.open();
+          search.value = "duplicate";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(list.selectedIndex === -1, "the filtered list unexpectedly had a selection");
+          search.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+          assert(root.activeElement === list, "ArrowDown did not move focus to the list");
+          assert(list.selectedIndex === listIndex("Duplicate one"), "the first result was not highlighted");
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          assert(source.selectedIndex === sourceIndex("Duplicate one"), "Enter did not commit the highlighted result");
+          assert(panel.hidden, "Enter did not close the panel");
+        });
+
         await run("Enter in search commits the only remaining result", () => {
           control.open();
           search.value = "cote";

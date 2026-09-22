@@ -231,16 +231,58 @@
           assert(panel.hidden, "Enter in search did not close the panel");
         });
 
-        await run("Enter in search does nothing when the results are ambiguous", () => {
+        await run("Enter in search prefers the exact match over the current option", () => {
+          const label = document.createElement("label");
+          label.htmlFor = "codes-test";
+          label.textContent = "Codes";
+          const control = document.createElement("accessible-select");
+          const source = document.createElement("select");
+          source.id = "codes-test";
+          source.add(new Option("Disabled 7001", "x", false, false));
+          source.options[0].disabled = true;
+          source.add(new Option("7001", "7001"));
+          source.add(new Option("70011", "70011", false, true));
+          source.add(new Option("70012", "70012"));
+          control.append(source);
+          document.body.append(label, control);
+          const search = control.shadowRoot.querySelector("[part=search]");
+          const list = control.shadowRoot.querySelector("[part=listbox]");
+          const enter = () => search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+          const type = text => {
+            control.open();
+            search.value = text;
+            search.dispatchEvent(new Event("input", { bubbles: true }));
+          };
+          type("7001");
+          assert(list.options[list.selectedIndex]?.text === "70011", "the current option was not among the results");
+          enter();
+          assert(source.value === "7001", "Enter kept the current option instead of the exact match");
+          source.value = "70012";
+          type("700");
+          enter();
+          assert(source.value === "7001", "Enter kept the current option instead of the first match starting with the search");
+          source.options[1].disabled = true;
+          source.value = "70012";
+          type("7001");
+          enter();
+          assert(source.value === "70011", "Enter picked a disabled exact match or skipped the first selectable start match");
+          type("001");
+          enter();
+          assert(source.value === "70011", "Enter did not fall back to the first selectable result");
+          source.value = "70012";
+          type("");
+          enter();
+          assert(source.value === "70012", "an empty search changed the current option");
+        });
+
+        await run("Enter in search commits the first result when nothing matches better", () => {
           control.open();
-          const before = source.selectedIndex;
           search.value = "duplicate";
           search.dispatchEvent(new Event("input", { bubbles: true }));
           search.focus();
           search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-          assert(source.selectedIndex === before, "ambiguous Enter committed a value");
-          assert(!panel.hidden, "ambiguous Enter closed the panel");
-          control.close();
+          assert(source.selectedIndex === sourceIndex("Duplicate one"), "Enter did not commit the first result");
+          assert(panel.hidden, "Enter did not close the panel");
         });
 
         await run("typing in the result list returns to search and filters without committing", () => {
@@ -303,6 +345,22 @@
           assert(status.textContent === before, "status announced an intermediate result count");
           await settle();
           assert(status.textContent === "1 result", "status did not settle on the final result count");
+          control.close();
+        });
+
+        await run("a single result takes one row and stays a listbox", () => {
+          control.open();
+          search.value = "duplicate";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          const twoRows = list.getBoundingClientRect().height;
+          search.value = "cote";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          const oneRow = list.getBoundingClientRect().height;
+          assert(list.size >= 2, "single result turned the list into a dropdown");
+          assert(oneRow > 0 && oneRow < twoRows * 0.75, `one result still took two rows (${oneRow} vs ${twoRows})`);
+          search.value = "";
+          search.dispatchEvent(new Event("input", { bubbles: true }));
+          assert(list.getBoundingClientRect().height > twoRows, "the full list kept the single-row height");
           control.close();
         });
 

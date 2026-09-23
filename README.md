@@ -64,12 +64,16 @@ selection stay in sync.
   click outside closes it, including on non-focusable page content.
 - A pointer click on a selectable result commits it and closes the panel.
 - Arrow keys, Home, and End only browse the result list. They never change the
-  form value. Enter commits the current option, closes the panel, and returns
-  focus to the summary button. Enter in the search field with an empty search
-  commits the current option, or the only selectable result when there is
-  exactly one. After typing, Enter picks the best selectable match: a label
+  form value. Enter commits the highlighted option, closes the panel, and
+  returns focus to the summary button, from either the search field or the
+  result list.
+- With an empty search, the current value is highlighted. Enter in the search
+  field commits it, or the only selectable result when there is exactly one.
+- After typing, the best selectable match is highlighted instead: a label
   equal to the search, then the first label starting with it, then the first
-  result. Escape and moving focus away close the panel without committing.
+  result. Moving through the list with the arrow keys changes the highlight,
+  and Enter picks that option. Escape and moving focus away close the panel
+  without committing.
 - Typing while the result list has focus returns focus to search and filters
   the list. Backspace from the result list removes the last search character
   and returns focus to search.

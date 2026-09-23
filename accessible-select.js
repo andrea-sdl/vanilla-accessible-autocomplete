@@ -194,6 +194,8 @@ export class AccessibleSelect extends HTMLElement {
       this.list.addEventListener("pointerdown", () => this.listClicked = true);
       this.root.addEventListener("mousedown", event => {
         this.listClicked = event.composedPath().includes(this.list);
+        // WebKit does not focus a clicked select; keep focus inside so focusout does not close the panel.
+        if (this.listClicked) this.list.focus({ preventScroll: true });
       }, true);
       this.list.addEventListener("click", () => {
         if (this.listClicked && this.pick()) this.close(true);

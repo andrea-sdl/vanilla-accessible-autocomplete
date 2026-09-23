@@ -167,6 +167,54 @@
           assert(panel.hidden, "pointer click did not close the panel");
         });
 
+        await run("a mouse click by position picks a result when the browser does not focus the list", async () => {
+          const label = document.createElement("label");
+          label.id = "site-test-label";
+          label.textContent = "Site";
+          const control = document.createElement("accessible-select");
+          const source = document.createElement("select");
+          source.setAttribute("aria-labelledby", label.id);
+          source.add(new Option("one", "1"));
+          source.add(new Option("two", "2"));
+          control.append(source);
+          document.body.append(label, control);
+          const root = control.shadowRoot;
+          const panel = root.querySelector("[part=panel]");
+          const list = root.querySelector("[part=listbox]");
+          const button = root.querySelector("[part=button]");
+          let changes = 0;
+          source.addEventListener("change", () => changes++);
+          control.open();
+          const rect = list.getBoundingClientRect();
+          const style = getComputedStyle(list);
+          const top = rect.top + parseFloat(style.paddingBlockStart);
+          const row = (list.clientHeight - parseFloat(style.paddingBlockStart) - parseFloat(style.paddingBlockEnd)) / list.size;
+          const x = rect.left + 20;
+          const y = top + row * 1.5;
+          const target = root.elementFromPoint(x, y);
+          assert(target === list || list.contains(target), "the second row is not under the pointer");
+          const init = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
+          let focusedDuringPress = false;
+          document.addEventListener("mousedown", () => focusedDuringPress = root.activeElement === list, { once: true });
+          target.dispatchEvent(new PointerEvent("pointerdown", init));
+          target.dispatchEvent(new MouseEvent("mousedown", init));
+          // A real press in WebKit does not focus the select, so focus goes to the body
+          // unless the component moved it into the list while the press was dispatched.
+          if (!focusedDuringPress) root.activeElement?.blur();
+          await tick();
+          assert(!panel.hidden, "the panel closed while the mouse button was down");
+          list.selectedIndex = 1;
+          target.dispatchEvent(new PointerEvent("pointerup", init));
+          target.dispatchEvent(new MouseEvent("mouseup", init));
+          list.dispatchEvent(new Event("input", { bubbles: true }));
+          list.dispatchEvent(new Event("change", { bubbles: true }));
+          target.dispatchEvent(new MouseEvent("click", init));
+          assert(source.value === "2", `the click did not pick the second result (value ${source.value})`);
+          assert(changes === 1, `the source fired ${changes} change events instead of one`);
+          assert(panel.hidden, "the click did not close the panel");
+          assert(root.activeElement === button, "focus did not return to the summary button");
+        });
+
         await run("keeps disabled options visible but cannot commit them", () => {
           const before = source.selectedIndex;
           if (panel.hidden) button.click();

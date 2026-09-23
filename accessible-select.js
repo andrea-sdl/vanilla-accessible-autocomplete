@@ -356,6 +356,11 @@ export class AccessibleSelect extends HTMLElement {
       this.list.replaceChildren(fragment);
       this.list.size = Math.max(2, Math.min(6, visible.length));
       this.list.selectedIndex = visible.findIndex(([, index]) => index === this.select.selectedIndex);
+      if (query) {
+        const items = [...this.list.options];
+        const best = this.bestMatch(items.filter(item => !item.disabled), query);
+        if (best) this.list.selectedIndex = items.indexOf(best);
+      }
       this.drawMessages(shown.length, visible.length, limited);
       this.fit(visible.length);
       if (this.disclosure.open) this.place();
@@ -418,9 +423,7 @@ export class AccessibleSelect extends HTMLElement {
       const items = [...this.list.options];
       const current = items[this.list.selectedIndex];
       const selectable = items.filter(item => !item.disabled);
-      const query = searchText(this.search.value);
-      const target = query ? this.bestMatch(selectable, query)
-        : current && !current.disabled ? current
+      const target = current && !current.disabled ? current
         : selectable.length === 1 ? selectable[0] : null;
       if (!target) return;
       this.list.selectedIndex = items.indexOf(target);
@@ -428,7 +431,7 @@ export class AccessibleSelect extends HTMLElement {
     }
 
     bestMatch(items, query) {
-      // After typing, Enter prefers an exact label, then a label starting with the search.
+      // After typing, highlight an exact label, then a label starting with the search.
       const texts = items.map(item => searchText(item.text));
       return items[texts.indexOf(query)]
         ?? items[texts.findIndex(text => text.startsWith(query))]

@@ -208,16 +208,16 @@
           assert(root.activeElement === button, "Enter did not return focus to the summary");
         });
 
-        await run("entering a filtered list without a selection highlights the first result for Enter", () => {
+        await run("entering the list on a disabled placeholder highlights the first selectable result for Enter", () => {
+          source.selectedIndex = sourceIndex("Choose a country");
+          control.refresh();
           control.open();
-          search.value = "duplicate";
-          search.dispatchEvent(new Event("input", { bubbles: true }));
-          assert(list.selectedIndex === -1, "the filtered list unexpectedly had a selection");
+          assert(list.options[list.selectedIndex]?.disabled, "the list did not start on the disabled placeholder");
           search.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
           assert(root.activeElement === list, "ArrowDown did not move focus to the list");
-          assert(list.selectedIndex === listIndex("Duplicate one"), "the first result was not highlighted");
+          assert(list.selectedIndex === listIndex("France"), "the first selectable result was not highlighted");
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-          assert(source.selectedIndex === sourceIndex("Duplicate one"), "Enter did not commit the highlighted result");
+          assert(source.selectedIndex === sourceIndex("France"), "Enter did not commit the highlighted result");
           assert(panel.hidden, "Enter did not close the panel");
         });
 
@@ -231,7 +231,7 @@
           assert(panel.hidden, "Enter in search did not close the panel");
         });
 
-        await run("Enter in search prefers the exact match over the current option", () => {
+        await run("typing highlights the best match and Enter picks it from search or the list", () => {
           const label = document.createElement("label");
           label.htmlFor = "codes-test";
           label.textContent = "Codes";
@@ -247,31 +247,39 @@
           document.body.append(label, control);
           const search = control.shadowRoot.querySelector("[part=search]");
           const list = control.shadowRoot.querySelector("[part=listbox]");
-          const enter = () => search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-          const type = text => {
+          const key = (target, key) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+          const highlighted = () => list.options[list.selectedIndex]?.text;
+          const type = (text, value = "70011") => {
+            source.value = value;
             control.open();
             search.value = text;
             search.dispatchEvent(new Event("input", { bubbles: true }));
           };
           type("7001");
-          assert(list.options[list.selectedIndex]?.text === "70011", "the current option was not among the results");
-          enter();
-          assert(source.value === "7001", "Enter kept the current option instead of the exact match");
-          source.value = "70012";
-          type("700");
-          enter();
+          assert(highlighted() === "7001", `typing highlighted ${highlighted()} instead of the exact match`);
+          key(search, "Enter");
+          assert(source.value === "7001", "Enter in search kept the current option instead of the exact match");
+          type("7001");
+          key(search, "ArrowDown");
+          key(list, "Enter");
+          assert(source.value === "7001", "ArrowDown then Enter picked a different option than Enter in search");
+          type("7001");
+          key(search, "ArrowDown");
+          list.selectedIndex = [...list.options].findIndex(item => item.text === "70012");
+          key(list, "Enter");
+          assert(source.value === "70012", "Enter did not pick the option the user moved to");
+          type("700", "70012");
+          key(search, "Enter");
           assert(source.value === "7001", "Enter kept the current option instead of the first match starting with the search");
           source.options[1].disabled = true;
-          source.value = "70012";
-          type("7001");
-          enter();
+          type("7001", "70012");
+          key(search, "Enter");
           assert(source.value === "70011", "Enter picked a disabled exact match or skipped the first selectable start match");
-          type("001");
-          enter();
+          type("001", "70012");
+          key(search, "Enter");
           assert(source.value === "70011", "Enter did not fall back to the first selectable result");
-          source.value = "70012";
-          type("");
-          enter();
+          type("", "70012");
+          key(search, "Enter");
           assert(source.value === "70012", "an empty search changed the current option");
         });
 

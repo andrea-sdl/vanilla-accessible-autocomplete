@@ -380,6 +380,29 @@
           control.close();
         });
 
+        await run("a short panel scrolls only its list, never itself", () => {
+          const style = document.createElement("style");
+          style.textContent = "accessible-select.short-panel::part(panel) { max-block-size: 14rem; }";
+          const label = document.createElement("label");
+          label.htmlFor = "short-panel-test";
+          label.textContent = "Short panel";
+          const control = document.createElement("accessible-select");
+          control.className = "short-panel";
+          const source = document.createElement("select");
+          source.id = "short-panel-test";
+          for (let number = 1; number <= 100; number++) source.add(new Option(`Item ${number}`, number));
+          control.append(source);
+          document.body.append(style, label, control);
+          control.open(false);
+          const panel = control.shadowRoot.querySelector("[part=panel]");
+          const list = control.shadowRoot.querySelector("[part=listbox]");
+          const hint = control.shadowRoot.querySelector("[part=hint]");
+          assert(panel.scrollHeight <= panel.clientHeight + 1, `the panel scrolls (${panel.scrollHeight} > ${panel.clientHeight})`);
+          assert(list.scrollHeight > list.clientHeight, "the list does not scroll its extra options");
+          assert(hint.getBoundingClientRect().bottom <= panel.getBoundingClientRect().bottom + 1, "the hint is cut off below the panel");
+          control.close();
+        });
+
         await run("limits a long unfiltered list but keeps its selected option visible", () => {
           const label = document.createElement("label");
           label.htmlFor = "many-items-test";

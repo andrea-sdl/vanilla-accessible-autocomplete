@@ -7,20 +7,21 @@ module.
 The source select stays the canonical value and native form field. Without
 JavaScript, users get the normal select. With JavaScript, the component hides
 that source select and builds an accessible `details`/`summary` disclosure,
-search input, result status, validation error, and native listbox in its shadow
-root.
+search input, result status, validation error, and an ARIA listbox in its
+shadow root. The listbox is drawn by the component, not a native `<select>`, so
+its options can be styled the same way in every browser.
 
 [Live demo](https://andrea-sdl.github.io/vanilla-accessible-autocomplete/) · [Source code](https://github.com/andrea-sdl/vanilla-accessible-autocomplete)
 
 ## Integrate
 
-Add this module tag to load the `v0.2.4` release from GitHub through jsDelivr:
+Add this module tag to load the `v0.3.0` release from GitHub through jsDelivr:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.2.4/accessible-select.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/andrea-sdl/vanilla-accessible-autocomplete@v0.3.0/accessible-select.js"></script>
 ```
 
-For a newer release, replace `v0.2.4` with its Git tag. Use `main` only to
+For a newer release, replace `v0.3.0` with its Git tag. Use `main` only to
 test unreleased changes.
 
 Then put exactly one supported select directly inside the custom element. Give
@@ -134,14 +135,20 @@ uses these optional custom properties: `--accessible-select-surface`,
 `--accessible-select-border`, `--accessible-select-focus`,
 `--accessible-select-radius`, `--accessible-select-control-height`,
 `--accessible-select-padding`, `--accessible-select-panel-gap`,
-`--accessible-select-shadow`, and `--accessible-select-hover`.
+`--accessible-select-shadow`, `--accessible-select-hover`,
+`--accessible-select-selected-surface`, `--accessible-select-selected-text`,
+and `--accessible-select-option-radius`. The selected pair defaults to the
+system `Highlight` and `HighlightText` colors.
 
 It exposes these shadow parts: `button`, `name`, `value`, `indicator`, `panel`,
-`search-wrap`, `search-label`, `search`, `clear`, `listbox`, `status`, `hint`,
-`empty`, and `error`.
+`search-wrap`, `search-label`, `search`, `clear`, `listbox`, `option`,
+`status`, `hint`, `empty`, and `error`.
 
-Safari ignores `padding` on `<option>` elements, so touch targets in the result
-list follow its own option metrics there.
+Every result is an `option` part. The one holding the current value also has
+`selected`, and the one the keyboard or best match highlights also has
+`active`, so `::part(option selected)` and `::part(option active)` style each
+state. The current value carries `aria-selected="true"`; the highlight is the
+listbox's `aria-activedescendant`.
 
 For example, a site can replace the default border and selected-list look with
 `::part()` rules:
@@ -150,11 +157,15 @@ For example, a site can replace the default border and selected-list look with
 accessible-select::part(button) { border: 3px solid black; }
 accessible-select::part(panel) { border: 3px solid black; }
 accessible-select::part(listbox) { font-size: 1.5rem; }
+accessible-select::part(option) { padding: .25rem .5rem; }
 
 accessible-select {
   --accessible-select-radius: 0;
   --accessible-select-border: black;
   --accessible-select-panel-gap: 0;
+  --accessible-select-selected-surface: black;
+  --accessible-select-selected-text: white;
+  --accessible-select-option-radius: .5rem;
 }
 ```
 
@@ -165,7 +176,7 @@ the `:host` custom-property defaults, and every one of those declarations is
 preceded by a plain fallback declaration, so a browser without `color-mix()`
 keeps the earlier system-color value. All custom properties are declared on
 `:host`, so a page can override any of them without the component losing a
-default. Safari ignores `option` padding.
+default.
 
 ## Screen reader checklist
 

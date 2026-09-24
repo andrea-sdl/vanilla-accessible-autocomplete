@@ -70,12 +70,22 @@
         const hint = root.querySelector("[part=hint]");
         const empty = root.querySelector("[part=empty]");
         const sourceIndex = text => [...source.options].findIndex(option => option.text === text);
-        const listIndex = text => [...list.options].findIndex(option => option.text === text);
+        // The result list is an ARIA listbox: options are role=option elements,
+        // the highlight is aria-activedescendant, and a pick is a click.
+        const optionsOf = list => [...list.querySelectorAll("[role=option]")];
+        const activeOf = list => list.getRootNode().getElementById(list.getAttribute("aria-activedescendant") || "");
+        const clickOption = (list, text) => {
+          const item = optionsOf(list).find(option => option.textContent === text);
+          item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, composed: true }));
+          item.click();
+        };
+        const options = () => optionsOf(list);
+        const listIndex = text => options().findIndex(option => option.textContent === text);
 
         await run("upgrades an explicitly labeled select and preserves its initial selection", () => {
           assert(source.hidden, "source select is still visible");
           assert(disclosure && button.tagName === "SUMMARY" && button.getAttribute("role") === "button", "disclosure is not accessible native details/summary");
-          assert(list.tagName === "SELECT" && !list.name, "result list is not an unnamed native select");
+          assert(list.getAttribute("role") === "listbox" && list.tabIndex === 0, "result list is not a focusable listbox");
           assert(list.getAttribute("aria-label") === "Select your country (required)", "result list has no source label");
           assert(list.getAttribute("aria-required") === "true", "result list did not mirror required state");
           assert(!search.hasAttribute("aria-label"), "search is still named by aria-label");
@@ -130,7 +140,7 @@
           button.click();
           search.value = "cote";
           search.dispatchEvent(new Event("input", { bubbles: true }));
-          assert(list.options.length === 1 && list.options[0].text === "Côte d’Ivoire", "accent-insensitive search failed");
+          assert(options().length === 1 && options()[0].textContent === "Côte d’Ivoire", "accent-insensitive search failed");
           assert(source.value === "fr", "search changed the form value");
         });
 
@@ -141,7 +151,7 @@
           search.dispatchEvent(new FocusEvent("focusout", { bubbles: true, composed: true }));
           await tick();
           assert(source.value === "fr", "blur selected the exact result");
-          assert(search.value === "" && list.options.length === source.options.length, "close did not rebuild the full list");
+          assert(search.value === "" && options().length === source.options.length, "close did not rebuild the full list");
         });
 
         await run("commits the exact duplicate option and emits native source events", () => {
@@ -150,9 +160,7 @@
           let changes = 0;
           source.addEventListener("input", () => inputs++, { once: true });
           source.addEventListener("change", () => changes++, { once: true });
-          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
-          list.selectedIndex = listIndex("Duplicate two");
-          list.dispatchEvent(new Event("input", { bubbles: true }));
+          clickOption(list, "Duplicate two");
           assert(source.selectedIndex === sourceIndex("Duplicate two"), "selected the wrong duplicate value");
           assert(new FormData(form).get("country") === "duplicate", "source select did not submit its canonical value");
           assert(inputs === 1 && changes === 1, "source input/change events did not fire once");
@@ -160,9 +168,7 @@
 
         await run("pointer clicks commit a selectable result and close the panel", () => {
           if (panel.hidden) button.click();
-          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
-          list.selectedIndex = listIndex("Germany");
-          list.dispatchEvent(new Event("input", { bubbles: true }));
+          clickOption(list, "Germany");
           assert(source.selectedIndex === sourceIndex("Germany"), "pointer click did not commit its result");
           assert(panel.hidden, "pointer click did not close the panel");
         });
@@ -185,29 +191,22 @@
           let changes = 0;
           source.addEventListener("change", () => changes++);
           control.open();
-          const rect = list.getBoundingClientRect();
-          const style = getComputedStyle(list);
-          const top = rect.top + parseFloat(style.paddingBlockStart);
-          const row = (list.clientHeight - parseFloat(style.paddingBlockStart) - parseFloat(style.paddingBlockEnd)) / list.size;
-          const x = rect.left + 20;
-          const y = top + row * 1.5;
+          const second = optionsOf(list)[1];
+          const rect = second.getBoundingClientRect();
+          const x = rect.left + 10;
+          const y = rect.top + rect.height / 2;
           const target = root.elementFromPoint(x, y);
-          assert(target === list || list.contains(target), "the second row is not under the pointer");
+          assert(target === second, "the second row is not under the pointer");
           const init = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0 };
-          let focusedDuringPress = false;
-          document.addEventListener("mousedown", () => focusedDuringPress = root.activeElement === list, { once: true });
           target.dispatchEvent(new PointerEvent("pointerdown", init));
-          target.dispatchEvent(new MouseEvent("mousedown", init));
-          // A real press in WebKit does not focus the select, so focus goes to the body
-          // unless the component moved it into the list while the press was dispatched.
-          if (!focusedDuringPress) root.activeElement?.blur();
+          const kept = !target.dispatchEvent(new MouseEvent("mousedown", init));
+          // A real press moves focus unless the component cancels it, and WebKit
+          // moves it to the body; simulate that when the press was not cancelled.
+          if (!kept) root.activeElement?.blur();
           await tick();
           assert(!panel.hidden, "the panel closed while the mouse button was down");
-          list.selectedIndex = 1;
           target.dispatchEvent(new PointerEvent("pointerup", init));
           target.dispatchEvent(new MouseEvent("mouseup", init));
-          list.dispatchEvent(new Event("input", { bubbles: true }));
-          list.dispatchEvent(new Event("change", { bubbles: true }));
           target.dispatchEvent(new MouseEvent("click", init));
           assert(source.value === "2", `the click did not pick the second result (value ${source.value})`);
           assert(changes === 1, `the source fired ${changes} change events instead of one`);
@@ -218,10 +217,8 @@
         await run("keeps disabled options visible but cannot commit them", () => {
           const before = source.selectedIndex;
           if (panel.hidden) button.click();
-          list.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, composed: true }));
-          list.selectedIndex = listIndex("Unavailable country");
-          list.dispatchEvent(new Event("input", { bubbles: true }));
-          assert(list.options[listIndex("Unavailable country")].disabled, "disabled option is not represented as disabled");
+          clickOption(list, "Unavailable country");
+          assert(options()[listIndex("Unavailable country")].getAttribute("aria-disabled") === "true", "disabled option is not represented as disabled");
           assert(source.selectedIndex === before, "disabled option changed the source selection");
         });
 
@@ -234,11 +231,11 @@
         await run("arrow, Home, and End keys browse the list without committing", async () => {
           control.open();
           const before = source.selectedIndex;
-          for (const [key, text] of [["ArrowDown", "Germany"], ["Home", "France"], ["End", "Duplicate two"]]) {
-            list.selectedIndex = listIndex(text);
-            list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-            list.dispatchEvent(new Event("input", { bubbles: true }));
-            await tick();
+          list.focus();
+          // Côte d’Ivoire is current; Home and End skip the disabled options at both ends.
+          for (const [key, text] of [["ArrowDown", "Duplicate one"], ["Home", "France"], ["End", "Duplicate two"], ["ArrowUp", "Duplicate one"]]) {
+            list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+            assert(activeOf(list)?.textContent === text, `${key} highlighted ${activeOf(list)?.textContent} instead of ${text}`);
             assert(source.selectedIndex === before, `${key} committed the current option`);
           }
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
@@ -248,8 +245,8 @@
 
         await run("Enter in the result list commits and returns focus to the summary", () => {
           control.open();
-          list.selectedIndex = listIndex("Germany");
           list.focus();
+          for (const key of ["Home", "ArrowDown"]) list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
           assert(source.selectedIndex === sourceIndex("Germany"), "Enter did not commit the current option");
           assert(panel.hidden, "Enter did not close the panel");
@@ -260,10 +257,10 @@
           source.selectedIndex = sourceIndex("Choose a country");
           control.refresh();
           control.open();
-          assert(list.options[list.selectedIndex]?.disabled, "the list did not start on the disabled placeholder");
+          assert(activeOf(list)?.getAttribute("aria-disabled") === "true", "the list did not start on the disabled placeholder");
           search.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
           assert(root.activeElement === list, "ArrowDown did not move focus to the list");
-          assert(list.selectedIndex === listIndex("France"), "the first selectable result was not highlighted");
+          assert(activeOf(list)?.textContent === "France", "the first selectable result was not highlighted");
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
           assert(source.selectedIndex === sourceIndex("France"), "Enter did not commit the highlighted result");
           assert(panel.hidden, "Enter did not close the panel");
@@ -296,7 +293,7 @@
           const search = control.shadowRoot.querySelector("[part=search]");
           const list = control.shadowRoot.querySelector("[part=listbox]");
           const key = (target, key) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-          const highlighted = () => list.options[list.selectedIndex]?.text;
+          const highlighted = () => activeOf(list)?.textContent;
           const type = (text, value = "70011") => {
             source.value = value;
             control.open();
@@ -313,7 +310,9 @@
           assert(source.value === "7001", "ArrowDown then Enter picked a different option than Enter in search");
           type("7001");
           key(search, "ArrowDown");
-          list.selectedIndex = [...list.options].findIndex(item => item.text === "70012");
+          key(list, "ArrowDown");
+          key(list, "ArrowDown");
+          assert(highlighted() === "70012", `arrowing highlighted ${highlighted()} instead of 70012`);
           key(list, "Enter");
           assert(source.value === "70012", "Enter did not pick the option the user moved to");
           type("700", "70012");
@@ -348,7 +347,7 @@
           list.dispatchEvent(new KeyboardEvent("keydown", { key: "p", bubbles: true, cancelable: true }));
           assert(root.activeElement === search, "typing did not return focus to search");
           assert(search.value === "p", "typed character did not move to search");
-          assert(list.options.length === 2, "search did not filter duplicate options");
+          assert(options().length === 2, "search did not filter duplicate options");
           assert(source.value === before, "typing in the list committed a value");
           control.close();
         });
@@ -374,7 +373,7 @@
           clear.click();
           assert(search.value === "", "clear button did not clear the search");
           assert(root.activeElement === search, "clear button did not focus search");
-          assert(clear.hidden && list.options.length === source.options.length, "clear button did not rebuild the full list");
+          assert(clear.hidden && options().length === source.options.length, "clear button did not rebuild the full list");
           control.close();
         });
 
@@ -404,7 +403,7 @@
           control.close();
         });
 
-        await run("a single result takes one row and stays a listbox", () => {
+        await run("a single result takes one row", () => {
           control.open();
           search.value = "duplicate";
           search.dispatchEvent(new Event("input", { bubbles: true }));
@@ -412,12 +411,42 @@
           search.value = "cote";
           search.dispatchEvent(new Event("input", { bubbles: true }));
           const oneRow = list.getBoundingClientRect().height;
-          assert(list.size >= 2, "single result turned the list into a dropdown");
           assert(oneRow > 0 && oneRow < twoRows * 0.75, `one result still took two rows (${oneRow} vs ${twoRows})`);
           search.value = "";
           search.dispatchEvent(new Event("input", { bubbles: true }));
           assert(list.getBoundingClientRect().height > twoRows, "the full list kept the single-row height");
           control.close();
+        });
+
+        await run("exposes the current value and the highlight to assistive tech and to CSS", () => {
+          source.value = "de";
+          control.refresh();
+          control.open();
+          const current = options().filter(option => option.getAttribute("aria-selected") === "true");
+          assert(current.length === 1 && current[0].textContent === "Germany", "aria-selected does not mark exactly the current value");
+          assert(current[0].part.contains("option") && current[0].part.contains("selected"), "the current value has no option selected parts");
+          assert(activeOf(list) === current[0] && current[0].part.contains("active"), "the highlight did not start on the current value");
+          list.focus();
+          list.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+          const active = options().filter(option => option.part.contains("active"));
+          assert(active.length === 1 && active[0] === activeOf(list) && active[0].textContent === "Côte d’Ivoire", "the active part does not follow the highlight");
+          assert(current[0].getAttribute("aria-selected") === "true", "browsing moved aria-selected off the current value");
+          control.close();
+        });
+
+        await run("custom properties restyle the selected option in every engine", () => {
+          control.style.setProperty("--accessible-select-selected-surface", "rgb(1, 2, 3)");
+          control.style.setProperty("--accessible-select-selected-text", "rgb(250, 251, 252)");
+          control.style.setProperty("--accessible-select-option-radius", "7px");
+          control.open();
+          const selected = options().find(option => option.part.contains("selected"));
+          const style = getComputedStyle(selected);
+          assert(style.backgroundColor === "rgb(1, 2, 3)", `selected background is ${style.backgroundColor}`);
+          assert(style.color === "rgb(250, 251, 252)", `selected text is ${style.color}`);
+          assert(style.borderTopLeftRadius === "7px", `selected radius is ${style.borderTopLeftRadius}`);
+          assert(selected.getBoundingClientRect().width < list.getBoundingClientRect().width, "options are not inset from the list edges");
+          control.close();
+          for (const name of ["--accessible-select-selected-surface", "--accessible-select-selected-text", "--accessible-select-option-radius"]) control.style.removeProperty(name);
         });
 
         await run("the open panel records a supported placement", () => {
@@ -465,13 +494,13 @@
           control.append(source);
           document.body.append(label, control);
           const list = control.shadowRoot.querySelector("[part=listbox]");
-          const items = [...list.options];
+          const items = optionsOf(list);
           const hint = control.shadowRoot.querySelector("[part=hint]");
           assert(items.length === 10, "long list showed more than 10 options");
-          assert(!items.some(option => option.value === "-1"), "long list still uses a disabled hint option");
-          assert(items.some(option => option.text === "Item 100"), "selected option was not visible");
-          assert(list.options[list.selectedIndex].text === "Item 100", "selected option was not current in the list");
-          assert(items.every(option => option.title === option.text), "options carry no tooltip text");
+          assert(!items.some(option => option.getAttribute("aria-disabled") === "true"), "long list still uses a disabled hint option");
+          assert(items.some(option => option.textContent === "Item 100"), "selected option was not visible");
+          assert(activeOf(list)?.textContent === "Item 100", "selected option was not current in the list");
+          assert(items.every(option => option.title === option.textContent), "options carry no tooltip text");
           assert(!hint.hidden && hint.textContent === "Showing 10 of 100. Search to see them all", "long list did not give a search hint paragraph");
         });
 

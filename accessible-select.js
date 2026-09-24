@@ -77,9 +77,9 @@ export class AccessibleSelect extends HTMLElement {
       this.root = this.attachShadow({ mode: "open" });
       this.root.innerHTML = `
         <style>
-          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-muted: GrayText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .625rem; --accessible-select-control-height: 2.75rem; --accessible-select-padding: .625rem .75rem; --accessible-select-panel-gap: .25rem; --accessible-select-shadow: 0 10px 15px -3px transparent; --accessible-select-shadow: 0 10px 15px -3px color-mix(in srgb, CanvasText 18%, transparent), 0 4px 6px -4px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 50%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 5%, Canvas); color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
+          :host { --accessible-select-surface: Canvas; --accessible-select-text: CanvasText; --accessible-select-muted: GrayText; --accessible-select-border: GrayText; --accessible-select-focus: Highlight; --accessible-select-radius: .625rem; --accessible-select-control-height: 2.75rem; --accessible-select-padding: .625rem .75rem; --accessible-select-panel-gap: .25rem; --accessible-select-shadow: 0 10px 15px -3px transparent; --accessible-select-shadow: 0 10px 15px -3px color-mix(in srgb, CanvasText 18%, transparent), 0 4px 6px -4px color-mix(in srgb, CanvasText 18%, transparent); --accessible-select-border: color-mix(in srgb, CanvasText 50%, Canvas); --accessible-select-hover: Canvas; --accessible-select-hover: color-mix(in srgb, CanvasText 5%, Canvas); --accessible-select-selected-surface: Highlight; --accessible-select-selected-text: HighlightText; --accessible-select-option-radius: .375rem; color: var(--accessible-select-text); display: block; font: inherit; position: relative; }
           details { position: relative; }
-          summary, input, select { box-sizing: border-box; font: inherit; width: 100%; }
+          summary, input { box-sizing: border-box; font: inherit; width: 100%; }
           summary { align-items: center; background: var(--accessible-select-surface); border: 1px solid var(--accessible-select-border); border-radius: var(--accessible-select-radius); color: var(--accessible-select-text); cursor: pointer; display: flex; gap: .75rem; justify-content: space-between; list-style: none; min-block-size: var(--accessible-select-control-height); padding: var(--accessible-select-padding); text-align: start; }
           summary::-webkit-details-marker { display: none; }
           summary:hover:not([aria-disabled="true"]) { background: var(--accessible-select-hover); }
@@ -97,10 +97,12 @@ export class AccessibleSelect extends HTMLElement {
           [part=clear]:hover { color: var(--accessible-select-text); }
           [part=panel] > * { flex: none; }
           [part=panel] > [part=listbox] { flex: 0 1 auto; min-block-size: 0; }
-          [part=listbox] { background: var(--accessible-select-surface); border: 0; color: var(--accessible-select-text); display: block; padding-block: .25rem; }
-          option { padding-block: .5rem; padding-inline: .75rem; }
-          option:checked { background: Highlight; color: HighlightText; }
-          option:hover:not(:disabled):not(:checked) { background: var(--accessible-select-hover); color: var(--accessible-select-text); }
+          [part=listbox] { background: var(--accessible-select-surface); color: var(--accessible-select-text); overflow-y: auto; padding: .25rem; position: relative; }
+          [part~=option] { border-radius: var(--accessible-select-option-radius); cursor: pointer; overflow: hidden; padding-block: .5rem; padding-inline: .75rem; text-overflow: ellipsis; user-select: none; white-space: nowrap; }
+          [part~=option]:hover, [part~=option][part~=active] { background: var(--accessible-select-hover); }
+          [part~=option][part~=selected] { background: var(--accessible-select-selected-surface); color: var(--accessible-select-selected-text); }
+          [part~=option][aria-disabled=true] { background: none; color: var(--accessible-select-muted); cursor: not-allowed; }
+          [part=listbox]:focus-visible [part~=active] { outline: 2px solid var(--accessible-select-focus); outline-offset: -2px; }
           [part=status], [part=name], [part=search-label], [part=clear] > span:first-child { block-size: 1px; clip-path: inset(50%); inline-size: 1px; overflow: hidden; position: absolute; white-space: nowrap; }
           [part=hint], [part=empty] { color: var(--accessible-select-muted); margin: 0; padding: .5rem .875rem; border-block-start: 1px solid var(--accessible-select-border); }
           [part=error] { border-block-start: 1px solid var(--accessible-select-border); margin: 0; padding: .625rem .875rem; }
@@ -109,8 +111,8 @@ export class AccessibleSelect extends HTMLElement {
           [part=search]:focus-visible { outline: none; }
           [part=listbox]:focus-visible { outline: 2px solid var(--accessible-select-focus); outline-offset: -2px; }
           @media (prefers-reduced-motion: no-preference) { summary, [part=panel] { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease; } }
-          @media (pointer: coarse) { option { padding-block: .75rem; } }
-          @media (forced-colors: active) { [part=panel] { box-shadow: none; } }
+          @media (pointer: coarse) { [part~=option] { padding-block: .75rem; } }
+          @media (forced-colors: active) { [part=panel] { box-shadow: none; } [part~=option][part~=selected] { background: Highlight; color: HighlightText; forced-color-adjust: none; } }
           [hidden] { display: none !important; }
         </style>
         <details><summary part="button" role="button" aria-expanded="false" aria-haspopup="listbox"><span part="name"></span><span part="value"></span><span part="indicator" aria-hidden="true"></span></summary>
@@ -121,7 +123,7 @@ export class AccessibleSelect extends HTMLElement {
             <button part="clear" type="button" hidden><span></span><span aria-hidden="true">\u00d7</span></button>
           </div>
           <output part="status" role="status" aria-live="polite" aria-atomic="true"></output>
-          <select part="listbox" size="2"></select>
+          <div part="listbox" role="listbox" tabindex="0"></div>
           <p part="hint" hidden></p>
           <p part="empty" hidden></p>
           <p part="error" role="alert" aria-atomic="true" hidden></p>
@@ -175,7 +177,7 @@ export class AccessibleSelect extends HTMLElement {
         if (event.key === "Escape") {
           event.preventDefault();
           this.close(true);
-        } else if (event.key === "ArrowDown" && this.list.options.length) {
+        } else if (event.key === "ArrowDown" && this.items.length) {
           event.preventDefault();
           this.highlight();
           this.list.focus();
@@ -189,17 +191,14 @@ export class AccessibleSelect extends HTMLElement {
         this.draw();
         this.search.focus();
       });
-      this.list.addEventListener("input", () => this.choose());
-      this.list.addEventListener("change", () => this.choose());
-      this.list.addEventListener("pointerdown", () => this.listClicked = true);
-      this.root.addEventListener("mousedown", event => {
-        this.listClicked = event.composedPath().includes(this.list);
-        // WebKit does not focus a clicked select; keep focus inside so focusout does not close the panel.
-        if (this.listClicked) this.list.focus({ preventScroll: true });
-      }, true);
-      this.list.addEventListener("click", () => {
-        if (this.listClicked && this.pick()) this.close(true);
-        this.listClicked = false;
+      // Keep focus where it is during a press, so focusout cannot close the
+      // panel before the click lands; WebKit would not focus the list anyway.
+      this.list.addEventListener("mousedown", event => event.preventDefault());
+      this.list.addEventListener("click", event => {
+        const item = event.target.closest("[role=option]");
+        if (!item) return;
+        this.setActive(this.items.indexOf(item), false);
+        if (this.pick()) this.close(true);
       });
       this.list.addEventListener("keydown", event => this.listKeydown(event));
       this.list.addEventListener("focus", () => this.highlight());
@@ -209,8 +208,19 @@ export class AccessibleSelect extends HTMLElement {
     }
 
     listKeydown(event) {
-      this.listClicked = false;
       if (event.isComposing || event.key === "Process") return;
+      const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+      if (step) {
+        event.preventDefault();
+        this.setActive(this.nextSelectable(this.active, step));
+        return;
+      }
+      if (event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        const from = event.key === "Home" ? -1 : this.items.length;
+        this.setActive(this.nextSelectable(from, event.key === "Home" ? 1 : -1));
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         this.close(true);
@@ -347,37 +357,29 @@ export class AccessibleSelect extends HTMLElement {
       const selected = shown.find(([, index]) => index === this.select.selectedIndex);
       const visible = limited ? shown.slice(0, 10) : shown;
       if (limited && selected && !visible.includes(selected)) visible[visible.length - 1] = selected;
-      const fragment = document.createDocumentFragment();
-
-      for (const [option, index] of visible) {
-        const item = document.createElement("option");
-        item.value = index;
-        item.disabled = option.disabled;
-        item.textContent = optionText(option);
-        item.title = optionText(option);
-        fragment.append(item);
-      }
-      this.list.replaceChildren(fragment);
-      this.list.size = Math.max(2, Math.min(6, visible.length));
-      this.list.selectedIndex = visible.findIndex(([, index]) => index === this.select.selectedIndex);
+      this.items = visible.map(([option, index], position) => {
+        const item = document.createElement("div");
+        const selected = index === this.select.selectedIndex;
+        item.id = `${this.list.id}-option-${position}`;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(selected));
+        item.part.add("option");
+        if (selected) item.part.add("selected");
+        if (option.disabled) item.setAttribute("aria-disabled", "true");
+        item.dataset.index = index;
+        item.textContent = item.title = optionText(option);
+        return item;
+      });
+      this.list.replaceChildren(...this.items);
+      this.active = -1;
+      let active = this.items.findIndex(item => item.part.contains("selected"));
       if (query) {
-        const items = [...this.list.options];
-        const best = this.bestMatch(items.filter(item => !item.disabled), query);
-        if (best) this.list.selectedIndex = items.indexOf(best);
+        const best = this.bestMatch(this.items.filter(item => !item.hasAttribute("aria-disabled")), query);
+        if (best) active = this.items.indexOf(best);
       }
+      this.setActive(active, !this.panel.hidden);
       this.drawMessages(shown.length, visible.length, limited);
-      this.fit(visible.length);
       if (this.disclosure.open) this.place();
-    }
-
-    fit(count) {
-      // Size 2 keeps a single result in a listbox; hide its blank second row.
-      this.list.style.blockSize = "";
-      if (count !== 1 || this.panel.hidden) return;
-      const style = getComputedStyle(this.list);
-      const padding = parseFloat(style.paddingBlockStart) + parseFloat(style.paddingBlockEnd);
-      const row = (this.list.clientHeight - padding) / 2;
-      if (row > 0) this.list.style.blockSize = `${this.list.offsetHeight - row}px`;
     }
 
     drawMessages(count, shownCount, limited) {
@@ -397,46 +399,62 @@ export class AccessibleSelect extends HTMLElement {
     }
 
     pick() {
-      const item = this.list.options[this.list.selectedIndex];
-      const index = item && Number(item.value);
+      const item = this.items[this.active];
+      const index = item ? Number(item.dataset.index) : -1;
       const option = this.select.options[index];
-      if (!option || option.disabled || index === this.select.selectedIndex) {
-        this.draw();
-        return Boolean(option && !option.disabled);
-      }
+      if (!option || option.disabled) return false;
+      if (index === this.select.selectedIndex) return true;
       this.select.selectedIndex = index;
       this.select.dispatchEvent(new Event("input", { bubbles: true }));
       this.select.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
     }
 
-    highlight() {
-      // Keyboard users need a selected option for Enter to pick.
-      const items = [...this.list.options];
-      if (items[this.list.selectedIndex] && !items[this.list.selectedIndex].disabled) return;
-      this.list.selectedIndex = items.findIndex(item => !item.disabled);
+    setActive(position, reveal = true) {
+      this.items[this.active]?.part.remove("active");
+      this.active = position;
+      const item = this.items[position];
+      if (!item) {
+        this.list.removeAttribute("aria-activedescendant");
+        return;
+      }
+      item.part.add("active");
+      this.list.setAttribute("aria-activedescendant", item.id);
+      if (!reveal) return;
+      // Scroll the list, never the page: scrollIntoView would move both.
+      const top = item.offsetTop;
+      const bottom = top + item.offsetHeight;
+      if (top < this.list.scrollTop) this.list.scrollTop = top;
+      else if (bottom > this.list.scrollTop + this.list.clientHeight) this.list.scrollTop = bottom - this.list.clientHeight;
     }
 
-    choose() {
-      const close = this.listClicked;
-      this.listClicked = false;
-      if (close && this.pick()) this.close(true);
+    nextSelectable(from, step) {
+      for (let position = from + step; position >= 0 && position < this.items.length; position += step) {
+        if (!this.items[position].hasAttribute("aria-disabled")) return position;
+      }
+      return this.active;
+    }
+
+    highlight() {
+      // Keyboard users need a highlighted option for Enter to pick.
+      const current = this.items[this.active];
+      if (current && !current.hasAttribute("aria-disabled")) return;
+      this.setActive(this.nextSelectable(-1, 1));
     }
 
     commit() {
-      const items = [...this.list.options];
-      const current = items[this.list.selectedIndex];
-      const selectable = items.filter(item => !item.disabled);
-      const target = current && !current.disabled ? current
+      const current = this.items[this.active];
+      const selectable = this.items.filter(item => !item.hasAttribute("aria-disabled"));
+      const target = current && !current.hasAttribute("aria-disabled") ? current
         : selectable.length === 1 ? selectable[0] : null;
       if (!target) return;
-      this.list.selectedIndex = items.indexOf(target);
+      this.setActive(this.items.indexOf(target), false);
       if (this.pick()) this.close(true);
     }
 
     bestMatch(items, query) {
       // After typing, highlight an exact label, then a label starting with the search.
-      const texts = items.map(item => searchText(item.text));
+      const texts = items.map(item => searchText(item.textContent));
       return items[texts.indexOf(query)]
         ?? items[texts.findIndex(text => text.startsWith(query))]
         ?? items[0] ?? null;
